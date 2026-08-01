@@ -1,4 +1,5 @@
 #include <SDL2/SDL.h>
+#include <stdalign.h>
 #include "void.h"
 
 struct VoidWindow {
@@ -11,7 +12,16 @@ struct VoidRender {
     SDL_Renderer* handle;
 };
 
+struct VoidPoint {
+    float x, y;
+};
+
+struct VoidRect {
+    float x, y, w, h;
+};
+
 VoidWindow *void_window_create(const char *title, const uint32 width, const uint32 height) {
+    const VoidArenaMarker marker = void_arena_get_marker();
     VoidWindow* window = void_arena_alloc(sizeof(VoidWindow), alignof(VoidWindow));
     if (window == NULL) {
         VOID_LOG_ERROR("Window allocation failed!");
@@ -20,10 +30,10 @@ VoidWindow *void_window_create(const char *title, const uint32 width, const uint
     window->handle = SDL_CreateWindow(title,
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         (int)width, (int)height,
-        0
+        SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI
         );
     if (window->handle == NULL) {
-        void_arena_rollback();
+        void_arena_rollback_to(marker);
         VOID_LOG_ERROR("SDL_CreateWindow failed: %s", SDL_GetError());
         return NULL;
     }
@@ -32,7 +42,7 @@ VoidWindow *void_window_create(const char *title, const uint32 width, const uint
         );
     if (window->render == NULL) {
         SDL_DestroyWindow(window->handle);
-        void_arena_rollback();
+        void_arena_rollback_to(marker);
         VOID_LOG_ERROR("SDL_CreateRenderer failed: %s", SDL_GetError());
         return NULL;
     }
@@ -71,41 +81,6 @@ void void_window_poll_events(VoidWindow *window) {
             case SDL_QUIT:
                 window->should_close = true;
                 break;
-            case SDL_KEYDOWN:
-                switch (event.key.keysym.sym) {
-                    case SDLK_ESCAPE:
-                        window->should_close = true;
-                        break;
-                    /*
-                    case SDLK_RETURN:
-                        break;
-                    case SDLK_BACKSPACE:
-                        break;
-                    case SDLK_TAB:
-                        break;
-                    case SDLK_SPACE:
-                        break;
-                    case SDLK_PAGEUP:
-                        break;
-                    case SDLK_PAGEDOWN:
-                        break;
-                    case SDLK_END:
-                        break;
-                    case SDLK_HOME:
-                        break;
-                    case SDLK_LEFT:
-                        break;
-                    case SDLK_UP:
-                        break;
-                    case SDLK_RIGHT:
-                        break;
-                    case SDLK_DOWN:
-                        break;
-                    */
-                    default:
-                        break;
-                }
-                break;
             default:
                 break;
         }
@@ -123,6 +98,11 @@ void void_window_get_size(const VoidWindow *window, int *width, int *height) {
         return;
     }
     SDL_GetWindowSize(window->handle, width, height);
+}
+
+void void_window_set_logical_size(const VoidWindow *window, const int width, const int height) {
+    if (window == NULL || window->render == NULL) return;
+    SDL_RenderSetLogicalSize(window->render, width, height);
 }
 
 bool void_render_clear(const VoidWindow *window, const uint8 r, const uint8 g, const uint8 b, const uint8 a) {

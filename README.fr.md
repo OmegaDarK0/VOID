@@ -1,87 +1,65 @@
-# VOID (Platform Abstraction Layer)
+# VOID Framework (v0.1.0-alpha)
 
 *Lire dans d'autres langues : [English](README.md)*
 
-**VOID** est une bibliothèque statique écrite en C pur (C11/C17) agissant comme une couche d'abstraction matérielle (Platform Abstraction Layer - PAL). Elle a été conçue pour servir de fondation "Back-end" au moteur **SOUL**, mais peut être utilisée dans n'importe quel projet nécessitant un accès bas niveau performant.
+## 1. Introduction et Vision du Projet
 
-Sa philosophie principale est l'**Isolation Binaire Strict** : l'utilisateur de la bibliothèque ne voit jamais les dépendances sous-jacentes et n'interagit qu'avec un contrat d'interface minimal et prédictible (`void.h`).
+VOID est une couche d'abstraction de plateforme (PAL) haute performance développée selon la norme C17. Sa mission est de fournir un socle architectural robuste et portable pour le développement de moteurs de jeu, à l'instar du moteur SOUL. L'architecture impose une isolation totale du système via l'usage exclusif de pointeurs opaques — notamment `VoidWindow`, `VoidTexture` et `VoidRender` — masquant ainsi l'implémentation SDL2 vis-à-vis du Front-end.
 
----
+> **Note opérationnelle :** VOID expose une C-API minimaliste conçue pour être consommée efficacement par des moteurs C++ de haut niveau, garantissant une séparation stricte entre la logique applicative et les services système.
 
-## Principes d'Architecture
+## 2. Caractéristiques Fondamentales
 
-- **Zéro-Allocation Cachée** : Remplace les appels erratiques à `malloc/free` par un système d'Arènes pour des performances d'allocation instantanées et une cohérence de cache maximale.
-- **Opaque par Défaut** : Tous les concepts matériels (Fenêtres, Contextes de rendu, Textures) sont masqués derrière des pointeurs opaques (`VoidWindow`, `VoidTexture`).
-- **Data-Oriented Ready** : Les types primitifs sont strictement définis (`uint32`, `uint64`), garantissant la portabilité des structures de données (SoA) sur n'importe quel CPU.
+* **Gestion Mémoire par Arènes :** Implémentation d'un paradigme de "Zéro-Allocation" durant la boucle de jeu. Le système fragmente la mémoire pré-allouée entre une Arène Globale (données persistantes) et une Arène de Frame (données temporaires).
+* **Primitives Lock-Free :** Utilisation intensive des opérations atomiques du standard C pour la gestion des files de tâches et la synchronisation, éliminant les goulots d'étranglement et les changements de contexte liés aux mutex.
+* **Distribution Dynamique :** Support natif multiplateforme via la génération de bibliothèques partagées (`.dll` pour Windows, `.so` pour Linux), avec une gestion automatisée des dépendances vers les répertoires binaires spécifiques à l'architecture.
+* **Architecture PAL :** Abstraction exhaustive des services de bas niveau incluant la gestion des fenêtres, le rendu graphique 2D, la gestion du temps haute résolution et le traitement immédiat des entrées utilisateur.
 
----
+## 3. Architecture de la Mémoire (Zéro-Allocation)
 
-## Contenu du SDK
+Le système de gestion mémoire, défini dans `void.h`, est optimisé pour le Data-Oriented Design (DOD). L'usage systématique de l'alignement (`alignof`) et d'arènes contiguës favorise la localité du cache et les structures de données de type SoA (Structure of Arrays). L'initialisation doit respecter l'ordre opérationnel : `void_init()` suivi de `void_memory_init()`.
 
-Le projet compile en une bibliothèque statique autonome. L'API complète est exposée via un unique fichier d'en-tête :
+* **`void_arena_alloc(uint64 size, uint32 alignment)`**
+  Cette fonction alloue des blocs persistants dans l'arène globale. L'alignement manuel garantit l'intégrité des données sur les architectures strictes et optimise les performances de lecture.
 
-- `include/void.h` : L'interface publique (Le Contrat).
-- `lib/<os>-<arch>/libvoid.a` : Le binaire compilé à lier statiquement.
+* **`void_frame_alloc(uint64 size, uint32 alignment)`**
+  Allocation ultra-rapide dans l'arène de frame, représentant 10% de la mémoire totale (Facteur 0.1). Cette zone est libérée instantanément à chaque fin de cycle via `void_frame_free()`, sans aucun coût processeur.
 
----
+## 4. Système de Tâches et Multithreading
 
-## Compilation
+VOID implémente un *job system* de type "Fibers-preparatory" conçu pour minimiser l'intervention de l'ordonnanceur de l'OS. Le système instancie un pool de worker threads basé sur le nombre de cœurs logiques détectés via `void_system_get_core_count()`.
 
-VOID utilise un `Makefile` robuste supportant la cross-compilation et générant à la fois la bibliothèque et une suite de tests.
+La synchronisation et la distribution des tâches s'effectuent sans verrouillage grâce aux primitives atomiques `void_atomic_increment`, `void_atomic_decrement` et `void_atomic_compare_exchange`. Cette approche garantit une exécution fluide des systèmes massivement parallèles comme la physique ou l'intégration spatiale de l'ECS.
 
-### Prérequis
-- `gcc` ou `mingw-w64` (pour Windows)
-- `ar` (Archiver)
-- `libsdl2-dev`, `libsdl2-image-dev`
+## 5. Spécifications du Rendu et de l'Input
 
-### Commandes de Build
+| Fonctionnalité | Implémentation |
+| :--- | :--- |
+| **Primitives 2D** | Points, lignes et rectangles pilotés par le backend `VoidRender`. |
+| **Gestion des Textures** | Handles opaques via `VoidTexture` avec chargement via `void_texture_load`. |
+| **Entrées (Input)** | Lecture immédiate de l'état ; `VoidKeyCode` mappé directement sur `SDL_SCANCODE`. |
+| **Rendu Backend** | Implémentation actuelle via `SDL_Renderer` avec support natif HighDPI. |
 
+## 6. Roadmap de Développement
+
+1. **Rendu :** Migration du pipeline actuel vers une API de rendu moderne basée sur OpenGL pour un contrôle accru du GPU.
+2. **Branches Legacy :** Maintenance et stabilisation du support pour SDL2 et l'architecture processeur x86.
+3. **Branches Enhanced :** Optimisations spécifiques pour l'environnement UCRT et extension de la compatibilité vers l'architecture ARM64.
+
+## 7. Compilation et Déploiement
+
+Le build système s'appuie sur `common.mk` pour automatiser la compilation croisée. Le processus génère les binaires et les bibliothèques dynamiques (`libVOID.dll` / `libVOID.so`) dans des sous-répertoires structurés selon la cible, par exemple `bin/windows-x86_64` ou `bin/linux-x86_64`.
+
+Pour compiler l'intégralité du framework et de sa bibliothèque :
 ```bash
-#Compiler la bibliothèque (libvoid.a) et l'exécutable de test pour l'OS actuel :
-make
-
-#Compiler en mode Debug :
-make BUILD=debug
-
-#Afficher les informations de la toolchain (très utile pour le diagnostic) :
-make info
-
-#Nettoyer l'espace de travail :
-make fclean
+make all
 ```
 
-### Cross-Compilation (ex: Windows depuis Linux)
+Pour générer uniquement la bibliothèque partagée :
 ```bash
-make OS=windows ARCH=x86_64
+make lib
 ```
 
----
+## 8. Licence
 
-## Utilisation du Banc de Test
-
-Un programme de test indépendant est généré dans le dossier `bin/`. Il permet de stresser les différents modules isolément sans avoir besoin du moteur Front-end.
-
-```bash
-./bin/linux-x86_64/void [test_name]
-```
-
-Arguments disponibles :
-- `memory` : Teste l'allocation de blocs persistants et le rollback des arènes de frames.
-- `thread` : Teste les opérations atomiques en saturant les cœurs logiques détectés.
-- `render` : Lance une boucle de rendu visuelle, validant le delta time et l'indépendance de l'affichage.
-- `all` : Lance la suite complète.
-
----
-
-## Intégration dans un projet externe (C/C++)
-
-Pour utiliser **VOID** dans un projet supérieur, il suffit d'inclure le header et de lier la bibliothèque statique :
-
-```makefile
-# Exemple d'intégration Makefile
-CFLAGS  += -I/chemin/vers/void/include
-LDFLAGS += -L/chemin/vers/void/lib/linux-x86_64
-LDLIBS  += -lvoid -lSDL2 -lSDL2_image -lm -pthread
-```
-
-*Note: Bien que le header `void.h` cache la SDL2, l'éditeur de liens du projet final aura besoin des dépendances système de la SDL pour résoudre les symboles de `libvoid.a`.*
+Le framework VOID est distribué sous licence **LGPL 3**.

@@ -1,9 +1,11 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <SDL2/SDL_mixer.h>
 #include "void.h"
 
 #define SDL_INIT_FLAGS (SDL_INIT_TIMER | SDL_INIT_AUDIO | SDL_INIT_VIDEO)
 #define IMG_INIT_FLAGS (IMG_INIT_JPG | IMG_INIT_PNG)
+#define MIX_INIT_FLAGS (MIX_INIT_FLAC | MIX_INIT_MOD | MIX_INIT_MP3 | MIX_INIT_OGG)
 
 uint8 s_init_state = 0;
 
@@ -23,11 +25,25 @@ bool void_init(void) {
         return false;
     }
     s_init_state |= VOID_INIT_IMG;
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+        VOID_LOG_ERROR("Mix_OpenAudio failed: %s", Mix_GetError());
+        return false;
+    }
+    if ((Mix_Init(MIX_INIT_FLAGS) & MIX_INIT_FLAGS) != MIX_INIT_FLAGS) {
+        VOID_LOG_ERROR("Mix_Init failed: %s", Mix_GetError());
+        return false;
+    }
+    s_init_state |= VOID_INIT_MIX;
     VOID_LOG_OK("VOID initialised! (state: %d)", s_init_state);
     return true;
 }
 
 void void_exit(void) {
+    if (s_init_state & VOID_INIT_MIX) {
+        s_init_state &= ~VOID_INIT_MIX;
+        Mix_CloseAudio();
+        Mix_Quit();
+    }
     if (s_init_state & VOID_INIT_IMG) {
         s_init_state &= ~VOID_INIT_IMG;
         IMG_Quit();
@@ -36,8 +52,8 @@ void void_exit(void) {
         s_init_state &= ~VOID_INIT_SDL;
         SDL_Quit();
     }
-    VOID_LOG_INFO("VOID exited.");
     void_memory_exit();
+    VOID_LOG_INFO("VOID exited.");
     void_log_exit();
 }
 

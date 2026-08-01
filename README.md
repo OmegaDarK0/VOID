@@ -1,87 +1,65 @@
-# VOID (Platform Abstraction Layer)
+# VOID Framework (v0.1.0-alpha)
 
-*Read this in other languages: [Français](README.fr.md)*
+*Read in other languages: [Français](README.fr.md)*
 
-**VOID** is a static library written in pure C (C11/C17) acting as a Hardware Abstraction Layer (HAL). It was designed to serve as the "Back-end" foundation for the **SOUL**, but can be used in any project requiring high-performance, low-level access.
+## 1. Introduction and Project Vision
 
-Its core philosophy is **Strict Binary Isolation**: the library user never sees underlying dependencies and interacts only with a minimal and predictable interface contract (`void.h`).
+VOID is a high-performance Platform Abstraction Layer (PAL) developed in C17. Its mission is to provide a robust and portable architectural foundation for game engine development, similar to the SOUL engine. The architecture enforces total system isolation through the exclusive use of opaque pointers — notably `VoidWindow`, `VoidTexture`, and `VoidRender` — thereby hiding the SDL2 implementation from the Front-end.
 
----
+> **Operational Note:** VOID exposes a minimalist C-API designed to be efficiently consumed by high-level C++ engines, ensuring a strict separation between application logic and system services.
 
-## Architectural Principles
+## 2. Core Features
 
-- **Zero Hidden Allocations**: Replaces erratic `malloc/free` calls with an Arena Allocator system for instantaneous allocation performance and maximum cache coherency.
-- **Opaque by Design**: All hardware concepts (Windows, Rendering Contexts, Textures) are hidden behind opaque pointers (`VoidWindow`, `VoidTexture`).
-- **Data-Oriented Ready**: Primitive types are strictly defined (`uint32`, `uint64`), guaranteeing data structure portability (SoA) across any CPU.
+* **Arena Memory Management:** Implementation of a "Zero-Allocation" paradigm during the game loop. The system fragments pre-allocated memory between a Global Arena (persistent data) and a Frame Arena (temporary data).
+* **Lock-Free Primitives:** Heavy use of C standard atomic operations for task queue management and synchronization, eliminating bottlenecks and context switches associated with mutexes.
+* **Dynamic Distribution:** Native cross-platform support via the generation of shared libraries (`.dll` for Windows, `.so` for Linux), with automated dependency management to architecture-specific binary directories.
+* **PAL Architecture:** Exhaustive abstraction of low-level services including window management, 2D graphical rendering, high-resolution time management, and immediate processing of user inputs.
 
----
+## 3. Memory Architecture (Zero-Allocation)
 
-## SDK Content
+The memory management system, defined in `void.h`, is optimized for Data-Oriented Design (DOD). The systematic use of alignment (`alignof`) and contiguous arenas promotes cache locality and Structure of Arrays (SoA) data layouts. Initialization must respect the operational order: `void_init()` followed by `void_memory_init()`.
 
-The project compiles into a standalone static library. The complete API is exposed through a single header file:
+* **`void_arena_alloc(uint64 size, uint32 alignment)`**
+  This function allocates persistent blocks in the global arena. Manual alignment ensures data integrity on strict architectures and optimizes read performance.
 
-- `include/void.h`: The public interface (The Contract).
-- `lib/<os>-<arch>/libvoid.a`: The compiled binary to be linked statically.
+* **`void_frame_alloc(uint64 size, uint32 alignment)`**
+  Ultra-fast allocation in the frame arena, representing 10% of total memory (Factor 0.1). This zone is instantly freed at the end of each cycle via `void_frame_free()`, with zero CPU cost.
 
----
+## 4. Task System and Multithreading
 
-## Compilation
+VOID implements a *job system* of the "Fibers-preparatory" type designed to minimize OS scheduler intervention. The system instantiates a pool of worker threads based on the number of logical cores detected via `void_system_get_core_count()`.
 
-VOID uses a robust `Makefile` supporting cross-compilation and generating both the library and a test suite.
+Task synchronization and distribution are performed lock-free using the atomic primitives `void_atomic_increment`, `void_atomic_decrement`, and `void_atomic_compare_exchange`. This approach guarantees smooth execution of massively parallel systems such as physics or ECS spatial integration.
 
-### Prerequisites
-- `gcc` or `mingw-w64` (for Windows)
-- `ar` (Archiver)
-- `libsdl2-dev`, `libsdl2-image-dev`
+## 5. Rendering and Input Specifications
 
-### Build Commands
+| Feature | Implementation |
+| :--- | :--- |
+| **2D Primitives** | Points, lines, and rectangles driven by the `VoidRender` backend. |
+| **Texture Management** | Opaque handles via `VoidTexture` with loading through `void_texture_load`. |
+| **Input** | Immediate state reading; `VoidKeyCode` mapped directly to `SDL_SCANCODE`. |
+| **Backend Rendering** | Current implementation via `SDL_Renderer` with native HighDPI support. |
 
+## 6. Development Roadmap
+
+1. **Rendering:** Migration of the current pipeline to a modern OpenGL-based rendering API for increased GPU control.
+2. **Legacy Branches:** Maintenance and stabilization of support for SDL2 and the x86 processor architecture.
+3. **Enhanced Branches:** Specific optimizations for the UCRT environment and extended compatibility for the ARM64 architecture.
+
+## 7. Compilation and Deployment
+
+The build system relies on `common.mk` to automate cross-compilation. The process generates binaries and dynamic libraries (`libVOID.dll` / `libVOID.so`) in subdirectories structured by target, for example, `bin/windows-x86_64` or `bin/linux-x86_64`.
+
+To compile the entire framework and its library:
 ```bash
-#Compile the library (libvoid.a) and the test executable for the current OS:
-make
-
-#Compile in Debug mode:
-make BUILD=debug
-
-#Display toolchain information (useful for diagnostics):
-make info
-
-#Clean workspace:
-make fclean
+make all
 ```
 
-### Cross-Compilation (e.g., Windows from Linux)
+To generate only the shared library:
 ```bash
-make OS=windows ARCH=x86_64
+make lib
 ```
 
----
+## 8. License
 
-## Using the Test Suite
-
-A standalone test program is generated in the `bin/` folder. It allows for stress-testing different modules in isolation without needing the Front-end engine.
-
-```bash
-./bin/linux-x86_64/void [test_name]
-```
-
-Available arguments:
-- `memory`: Tests persistent block allocation and frame arena rollback.
-- `thread`: Tests atomic operations by saturating detected logical cores.
-- `render`: Launches a visual render loop, validating delta time and display independence.
-- `all`: Runs the full suite.
-
----
-
-## Integrating into an External Project (C/C++)
-
-To use **VOID** in a higher-level project, simply include the header and link the static library:
-
-```makefile
-# Makefile Integration Example
-CFLAGS  += -I/path/to/void/include
-LDFLAGS += -L/path/to/void/lib/linux-x86_64
-LDLIBS  += -lvoid -lSDL2 -lSDL2_image -lm -pthread
-```
-
-*Note: While the `void.h` header hides SDL2, the final project's linker will still need SDL's system dependencies to resolve symbols in `libvoid.a`.*
+The VOID framework is distributed under the **LGPL 3** license.

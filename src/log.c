@@ -1,3 +1,6 @@
+#include <stdio.h>
+#include <stdarg.h>
+#include <string.h>
 #include "void.h"
 
 #ifdef _WIN32
@@ -79,6 +82,10 @@ void void_log_flush(void) {
         if (!entry->is_ready) break;
         char *tag = " VOID ", *color = NC, *reset = NC;
         switch (entry->level) {
+            case VOID_LOG_DEBUG:
+                tag = " DEET ";
+                color = MAGENTA;
+                break;
             case VOID_LOG_INFO:
                 tag = " INFO ";
                 color = CYAN;
@@ -106,9 +113,9 @@ void void_log_flush(void) {
             color = "";
             reset = "";
         }
-        printf("%s[%s] [%06lu] [T:%010u] %s%s\n", color, tag, entry->timestamp, entry->thread_id, entry->text, reset);
+        printf("%s[%s] [%06" PRIu64 "] [T:%010u] %s%s\n", color, tag, entry->timestamp, entry->thread_id, entry->text, reset);
         if (s_log_file) {
-            fprintf(s_log_file, "[%s] [%06lu] [T:%010u] %s\n", tag, entry->timestamp, entry->thread_id, entry->text);
+            fprintf(s_log_file, "[%s] [%06" PRIu64 "] [T:%010u] %s\n", tag, entry->timestamp, entry->thread_id, entry->text);
             fflush(s_log_file);
         }
         s_log_tail++;

@@ -1,5 +1,6 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <stdalign.h>
 #include "void.h"
 
 struct VoidTexture {
@@ -10,6 +11,7 @@ struct VoidTexture {
 
 VoidTexture *void_texture_load(const VoidWindow *window, const char *filename) {
     SDL_Renderer *renderer = (SDL_Renderer*)void_window_get_render(window);
+    const VoidArenaMarker marker = void_arena_get_marker();
     VoidTexture *texture = void_arena_alloc(sizeof(VoidTexture), alignof(VoidTexture));
     if (texture == NULL) {
         VOID_LOG_ERROR("Texture allocation failed!");
@@ -17,17 +19,25 @@ VoidTexture *void_texture_load(const VoidWindow *window, const char *filename) {
     }
     texture->handle = IMG_LoadTexture(renderer, filename);
     if (texture->handle == NULL) {
-        void_arena_rollback();
+        void_arena_rollback_to(marker);
         VOID_LOG_ERROR("IMG_LoadTexture failed: %s", IMG_GetError());
         return NULL;
     }
     if (SDL_QueryTexture(texture->handle, &texture->format, &texture->access, &texture->width, &texture->height) < 0) {
         SDL_DestroyTexture(texture->handle);
-        void_arena_rollback();
+        void_arena_rollback_to(marker);
         VOID_LOG_ERROR("SDL_QueryTexture failed: %s", SDL_GetError());
         return NULL;
     }
     return texture;
+}
+
+int void_texture_get_width(const VoidTexture *texture) {
+    return texture ? texture->width : 0;
+}
+
+int void_texture_get_height(const VoidTexture *texture) {
+    return texture ? texture->height : 0;
 }
 
 void void_texture_destroy(const VoidTexture *texture) {

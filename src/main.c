@@ -1,6 +1,6 @@
-#include "void.h"
-#include <string.h>
 #include <stdio.h>
+#include <string.h>
+#include "void.h"
 
 // --- CONSTANTS ---
 #define WINDOW_WIDTH 1280
@@ -23,6 +23,7 @@ void test_logging(void) {
 // ============================================================================
 void test_memory_arenas(void) {
     VOID_LOG_INFO("[MEMORY TEST] Allocating persistent data...");
+    const VoidArenaMarker initial_marker = void_arena_get_marker();
     void_arena_alloc(16 * MB, 16);
     void_memory_print();
     VOID_LOG_INFO("[MEMORY TEST] Simulating 3 ECS frames (Frame Arena)...");
@@ -35,7 +36,7 @@ void test_memory_arenas(void) {
         void_frame_free(); // Zero cost, instant cleanup
     }
     void_memory_print();
-    void_arena_rollback();
+    void_arena_rollback_to(initial_marker);
     VOID_LOG_INFO("[MEMORY TEST] Test finished successfully.");
 }
 
@@ -133,7 +134,7 @@ int main(const int argc, char *argv[]) {
     if (!void_init()) {
         return -1;
     }
-    if (!void_memory_init(64 * MB)) {
+    if (!void_memory_init(32 * MB, 32 * KB)) {
         VOID_LOG_FATAL("Failed to allocate global engine memory!");
         void_exit();
         return -1;
