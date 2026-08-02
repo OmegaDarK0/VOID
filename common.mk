@@ -78,6 +78,7 @@ endif
 CC       := gcc
 CXX      := g++
 AR       := ar
+STRIP    := strip
 BIN_EXT  :=
 LIB_EXT  :=
 
@@ -90,18 +91,21 @@ ifeq ($(TARGET_OS),windows)
     ifneq ($(HOST_OS),windows)
         ifeq ($(TARGET_ARCH),x86_64)
             ifeq ($(RUNTIME),ucrt)
-                CC  := x86_64-w64-mingw32ucrt-gcc
-                CXX := x86_64-w64-mingw32ucrt-g++
-                AR  := x86_64-w64-mingw32ucrt-ar
+                CC    := x86_64-w64-mingw32ucrt-gcc
+                CXX   := x86_64-w64-mingw32ucrt-g++
+                AR    := x86_64-w64-mingw32ucrt-ar
+                STRIP := x86_64-w64-mingw32ucrt-strip
             else
-                CC  := x86_64-w64-mingw32-gcc
-                CXX := x86_64-w64-mingw32-g++
-                AR  := x86_64-w64-mingw32-ar
+                CC    := x86_64-w64-mingw32-gcc
+                CXX   := x86_64-w64-mingw32-g++
+                AR    := x86_64-w64-mingw32-ar
+                STRIP := x86_64-w64-mingw32-strip
             endif
         else ifeq ($(TARGET_ARCH),x86)
-            CC  := i686-w64-mingw32-gcc
-            CXX := i686-w64-mingw32-g++
-            AR  := i686-w64-mingw32-ar
+            CC    := i686-w64-mingw32-gcc
+            CXX   := i686-w64-mingw32-g++
+            AR    := i686-w64-mingw32-ar
+            STRIP := i686-w64-mingw32-strip
         endif
     endif
 else ifeq ($(TARGET_OS),linux)
@@ -141,7 +145,7 @@ ifeq ($(TARGET_OS),windows)
     LDLIBS  += -lmingw32 -mwindows
     OSFLAG  :=
 else ifeq ($(TARGET_OS),linux)
-    CFLAGS  += -fPIC
+    CFLAGS  += -fPIC -D_GNU_SOURCE
     LDFLAGS += -Wl,--enable-new-dtags -Wl,-rpath='$$ORIGIN:$$ORIGIN/../lib'
     LDLIBS  += -lm -ldl -pthread
     OSFLAG  := -pie
@@ -153,8 +157,7 @@ BUILD ?= debug
 ifeq ($(BUILD),debug)
     CFLAGS  += -Og -g
 else
-    CFLAGS  += -O2 -fstack-protector-strong -fstack-clash-protection -fcf-protection -D_FORTIFY_SOURCE=2 -DNDEBUG
-    LDFLAGS += -s
+    CFLAGS  += -O2 -g -fstack-protector-strong -fstack-clash-protection -fcf-protection -D_FORTIFY_SOURCE=2 -DNDEBUG
     ifeq ($(TARGET_OS),linux)
         LDFLAGS += -Wl,-z,relro,-z,now
     endif
@@ -189,9 +192,17 @@ define POST_BUILD_STEP
     @if [ "$(TARGET_OS)" = "windows" ]; then \
         echo "$(BLUE)[DLL] Copying dynamic libraries...$(NC)"; \
         cp $(LIB_DIR)/*.dll $(BIN_DIR)/ 2>/dev/null || true; \
+        if [ "$(BUILD)" = "release" ]; then \
+            echo "$(BLUE)[STRIP] Stripping executables and DLLs in bin/...$(NC)"; \
+            $(STRIP) $(BIN_DIR)/*.dll $(BIN_DIR)/*.exe 2>/dev/null || true; \
+        fi; \
     elif [ "$(TARGET_OS)" = "linux" ]; then \
         echo "$(BLUE)[SO] Copying dynamic libraries...$(NC)"; \
         cp -P $(LIB_DIR)/*.so* $(BIN_DIR)/ 2>/dev/null || true; \
+        if [ "$(BUILD)" = "release" ]; then \
+            echo "$(BLUE)[STRIP] Stripping binaries in bin/...$(NC)"; \
+            $(STRIP) $(BIN_DIR)/*.so* $(BIN_DIR)/$(BIN_NAME) 2>/dev/null || true; \
+        fi; \
     fi
 endef
 
@@ -264,17 +275,18 @@ release:
 ifeq ($(TARGET_OS),windows)
 	@echo "$(BLUE)[RELEASE] Exporting Windows binaries...$(NC)"
 	@cp -P $(BIN_DIR)/* $(DIST_DIR)/bin/ 2>/dev/null || true
-	@cp -P $(LIB_DIR)/$(LIB_NAME) $(DIST_DIR)/lib/ 2>/dev/null || true
+	@cp -P $(LIB_DIR)/*.dll $(DIST_DIR)/lib/ 2>/dev/null || true
 else ifeq ($(TARGET_OS),linux)
 	@echo "$(BLUE)[RELEASE] Exporting Linux binaries...$(NC)"
-	@cp -P $(BIN_DIR)/$(BIN_NAME) $(DIST_DIR)/bin/ 2>/dev/null || true
+	@cp -P $(BIN_DIR)/* $(DIST_DIR)/bin/ 2>/dev/null || true
 	@cp -P $(LIB_DIR)/*.so* $(DIST_DIR)/lib/ 2>/dev/null || true
 endif
 	@echo "$(BLUE)[RELEASE] Attaching assets and documentation...$(NC)"
 	@if [ -d "assets" ]; then cp -r assets $(DIST_DIR)/; fi
 	@cp *.md $(DIST_DIR)/ 2>/dev/null || true
 	@echo "$(BLUE)[RELEASE] Compressing to ZIP archive...$(NC)"
-	@cd dist && zip -rq $(notdir $(DIST_DIR)).zip $(notdir $(DIST_DIR)) 2>/dev/null || echo "$(YELLOW)[WARNING] 'zip' failed.$(NC)"
+	@cd dist && zip -ryq $(notdir $(DIST_DIR)).zip $(notdir $(DIST_DIR)) 2>/dev/null || echo "$(YELLOW)[WARNING] 'zip' failed.$(NC)"
+	@cd dist && tar -cJf $(notdir $(DIST_DIR)).tar.xz $(notdir $(DIST_DIR)) 2>/dev/null || echo "$(YELLOW)[WARNING] 'tar' failed.$(NC)"
 	@echo "$(GREEN)==================================================$(NC)"
 	@echo "$(GREEN)[SUCCESS] Release packaged in: $(DIST_DIR)$(NC)"
 	@echo "$(GREEN)[SUCCESS] Archive created:     dist/$(notdir $(DIST_DIR)).zip$(NC)"
@@ -297,6 +309,7 @@ info:
 	@echo "  C Compiler   : $(CC)"
 	@echo "  C++ Compiler : $(CXX)"
 	@echo "  Archiver     : $(AR)"
+	@echo "  Stripper     : $(STRIP)"
 	@echo ""
 	@echo "$(YELLOW)[Directories]$(NC)"
 	@echo "  Sources  : $(SRC_DIR)/"

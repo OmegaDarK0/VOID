@@ -25,15 +25,17 @@ bool void_init(void) {
         return false;
     }
     s_init_state |= VOID_INIT_IMG;
-    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
-        VOID_LOG_ERROR("Mix_OpenAudio failed: %s", Mix_GetError());
-        return false;
-    }
     if ((Mix_Init(MIX_INIT_FLAGS) & MIX_INIT_FLAGS) != MIX_INIT_FLAGS) {
-        VOID_LOG_ERROR("Mix_Init failed: %s", Mix_GetError());
-        return false;
+        VOID_LOG_WARN("Mix_Init failed: %s", Mix_GetError());
+    } else {
+        if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+            VOID_LOG_WARN("Mix_OpenAudio failed: %s", Mix_GetError());
+        } else if (Mix_AllocateChannels(32) < 0) {
+            VOID_LOG_WARN("Mix_AllocateChannels failed: %s", Mix_GetError());
+        } else {
+            s_init_state |= VOID_INIT_MIX;
+        }
     }
-    s_init_state |= VOID_INIT_MIX;
     VOID_LOG_OK("VOID initialised! (state: %d)", s_init_state);
     return true;
 }
