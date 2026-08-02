@@ -290,6 +290,7 @@ endif
 	@echo "$(GREEN)==================================================$(NC)"
 	@echo "$(GREEN)[SUCCESS] Release packaged in: $(DIST_DIR)$(NC)"
 	@echo "$(GREEN)[SUCCESS] Archive created:     dist/$(notdir $(DIST_DIR)).zip$(NC)"
+	@echo "$(GREEN)                               dist/$(notdir $(DIST_DIR)).tar.xz$(NC)"
 	@echo "$(GREEN)==================================================$(NC)"
 
 info:
