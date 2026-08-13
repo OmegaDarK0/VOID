@@ -9,7 +9,7 @@
 // ============================================================================
 // TEST 1: LOGGING
 // ============================================================================
-void test_logging(void) {
+static void test_logging(void) {
     VOID_LOG_INFO("Starting VOID FRAMEWORK test suite...");
     VOID_LOG_OK("Log test OK.");
     VOID_LOG_WARN("This is a test warning.");
@@ -21,10 +21,10 @@ void test_logging(void) {
 // ============================================================================
 // TEST 2: MEMORY ARENAS (ECS DOD Simulation)
 // ============================================================================
-void test_memory_arenas(void) {
+static void test_memory_arenas(void) {
     VOID_LOG_INFO("[MEMORY TEST] Allocating persistent data...");
     const VoidArenaMarker initial_marker = void_arena_get_marker();
-    void_arena_alloc(16 * MB, 16);
+    void_arena_alloc(16 * MiB, 16);
     void_memory_print();
     VOID_LOG_INFO("[MEMORY TEST] Simulating 3 ECS frames (Frame Arena)...");
     for (int frame = 0; frame < 3; frame++) {
@@ -42,7 +42,7 @@ void test_memory_arenas(void) {
 // ============================================================================
 // TEST 3: FILE I/O (NATIVE OS CALLS)
 // ============================================================================
-void test_file_io(void) {
+static void test_file_io(void) {
     VOID_LOG_INFO("[FILE TEST] Testing native OS file I/O (Zero Cost)...");
     const VoidArenaMarker marker = void_arena_get_marker();
     uint64 file_size = 0;
@@ -62,15 +62,15 @@ void test_file_io(void) {
 // ============================================================================
 static volatile uint32 s_shared_counter = 0;
 
-void thread_stress_task(void *data) {
+static void thread_stress_task(void *data) {
     const uint32 increments_to_do = (uint32)(uintptr_t)data;
     for (uint32 i = 0; i < increments_to_do; i++) {
         void_atomic_increment(&s_shared_counter);
     }
 }
 
-void test_thread_fibers(void) {
-    const uint32 cores = void_system_get_core_count();
+static void test_thread_fibers(void) {
+    const uint32 cores = void_get_core_count();
     const uint32 increments_per_thread = 1000000;
     const uint32 target = cores * increments_per_thread;
     s_shared_counter = 0;
@@ -88,14 +88,20 @@ void test_thread_fibers(void) {
 // ============================================================================
 // TEST 5: RENDERING, AUDIO, DELTA TIME AND INPUT
 // ============================================================================
-void test_render_loop(void) {
+static void test_render_loop(void) {
     VOID_LOG_INFO("[RENDER TEST] Creating window...");
-    VoidWindow *window = void_window_create("VOID FRAMEWORK", WINDOW_WIDTH, WINDOW_HEIGHT);
+    VoidWindow *window = void_window_create(
+        "VOID FRAMEWORK",
+        VOID_WINDOWPOS_CENTERED, VOID_WINDOWPOS_CENTERED,
+        WINDOW_WIDTH, WINDOW_HEIGHT,
+        VOID_WINDOW_SHOWN | VOID_WINDOW_RESIZABLE,
+        VOID_RENDER_ACCELERATED | VOID_RENDER_PRESENTVSYNC
+        );
     if (!window) {
         VOID_LOG_FATAL("Failed to create window.");
         return;
     }
-    void_window_set_logical_size(window, WINDOW_WIDTH, WINDOW_HEIGHT);
+    void_render_set_logical_size(window, WINDOW_WIDTH, WINDOW_HEIGHT);
     float player_x = WINDOW_WIDTH / 2.0f;
     float player_y = WINDOW_HEIGHT / 2.0f;
     float box_x = 100.0f;
@@ -147,13 +153,31 @@ void test_render_loop(void) {
 }
 
 // ============================================================================
+// TEST: HOT-RELOADING (DYNAMIC LIBRARY)
+// ============================================================================
+void test_hot_reload(void) {
+    VOID_LOG_INFO("[HOT-RELOAD TEST] Attempting to load a non-existent gameplay library...");
+    void *gameplay_dll = void_library_load("gameplay_logic.dll");
+    if (gameplay_dll) {
+        VOID_LOG_OK("[HOT-RELOAD TEST] Library loaded successfully!");
+        void *update_func = void_library_get_symbol(gameplay_dll, "soul_on_update");
+        if (update_func) {
+            VOID_LOG_OK("[HOT-RELOAD TEST] Function 'soul_on_update' found at %p", update_func);
+        }
+        void_library_free(gameplay_dll);
+    } else {
+        VOID_LOG_WARN("[HOT-RELOAD TEST] Handled library load failure perfectly. The engine did not crash.");
+    }
+}
+
+// ============================================================================
 // ENTRY POINT
 // ============================================================================
 int main(const int argc, char *argv[]) {
     if (!void_init()) {
         return -1;
     }
-    if (!void_memory_init(32 * MB, 32 * KB)) {
+    if (!void_memory_init(32 * MiB, 32 * KiB)) {
         VOID_LOG_FATAL("Failed to allocate global engine memory!");
         void_exit();
         return -1;

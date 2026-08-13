@@ -15,7 +15,6 @@ struct VoidArena {
 };
 
 static VoidArena s_global_arena, s_frame_arena;
-
 static volatile uint32 s_arena_lock = 0;
 
 static void void_memory_lock(void) {

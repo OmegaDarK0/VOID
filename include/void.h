@@ -15,10 +15,19 @@ extern "C" {
 VOID_API bool   void_init(void);
 VOID_API void   void_exit(void);
 
-VOID_API uint32 void_system_get_core_count(void); // Useful for initializing workers (job.cpp)
+VOID_API uint32 void_get_core_count(void); // Useful for initializing workers (job.cpp)
 
 VOID_API uint64 void_time_get_ticks(void);        // High-resolution time in milliseconds
 VOID_API float  void_time_get_delta(void);        // Delta time calculated by the Back-end
+
+// ============================================================================
+// DYNAMIC LIBRARY LOADING (library.c)
+// ============================================================================
+// Allows the engine to load/unload gameplay code at runtime (Hot-Reloading)
+
+VOID_API void* void_library_load(const char *filepath);
+VOID_API void* void_library_get_symbol(void *handle, const char *symbol_name);
+VOID_API void  void_library_free(void *handle);
 
 // ============================================================================
 // MEMORY (memory.c)
@@ -47,17 +56,44 @@ VOID_API void void_frame_rollback_to(VoidArenaMarker marker);
 // ============================================================================
 // WINDOW & INPUT (window.c / input.c)
 // ============================================================================
-// Opaque pointers: the Front-end doesn't need to know what an SDL window is
 
-VOID_API VoidWindow *void_window_create(const char *title, uint32 width, uint32 height);
+// --- 1. Creation & Lifecycle ---
+VOID_API VoidWindow *void_window_create(const char *title, int x, int y, uint32 w, uint32 h, VoidWindowFlags w_flags, VoidRenderFlags r_flags);
 VOID_API void        void_window_destroy(const VoidWindow *window);
 VOID_API void        void_window_close(VoidWindow *window);
 VOID_API bool        void_window_is_running(const VoidWindow *window);
 VOID_API bool        void_window_should_close(const VoidWindow *window);
-VOID_API void        void_window_poll_events(VoidWindow *window); // Polls OS messages
+VOID_API void        void_window_poll_events(VoidWindow *window);
+
+// --- 2. Window Setters ---
+VOID_API void void_window_set_title(const VoidWindow *window, const char *title);
+VOID_API void void_window_set_position(const VoidWindow *window, int x, int y);
+VOID_API void void_window_set_size(const VoidWindow *window, int width, int height);
+VOID_API void void_window_set_fullscreen(const VoidWindow *window, bool fullscreen);
+VOID_API void void_window_set_bordered(const VoidWindow *window, bool bordered);
+VOID_API void void_window_set_resizable(const VoidWindow *window, bool resizable);
+VOID_API void void_window_set_grabbed(const VoidWindow *window, bool grabbed);
+VOID_API void void_window_show(const VoidWindow *window);
+VOID_API void void_window_hide(const VoidWindow *window);
+VOID_API void void_window_maximize(const VoidWindow *window);
+VOID_API void void_window_minimize(const VoidWindow *window);
+
+// --- 3. Window Getters ---
+VOID_API void void_window_get_position(const VoidWindow *window, int *x, int *y);
+VOID_API void void_window_get_size(const VoidWindow *window, int *width, int *height);
+
+// --- 4. Window Status (is?) ---
+VOID_API bool void_window_is_fullscreen(const VoidWindow *window);
+VOID_API bool void_window_is_hidden(const VoidWindow *window);
+VOID_API bool void_window_is_maximized(const VoidWindow *window);
+VOID_API bool void_window_is_minimized(const VoidWindow *window);
+VOID_API bool void_window_is_grabbed(const VoidWindow *window);
+
+// --- 5. Render API ---
 VOID_API VoidRender *void_window_get_render(const VoidWindow *window);
-VOID_API void        void_window_get_size(const VoidWindow *window, int *width, int *height);
-VOID_API void        void_window_set_logical_size(const VoidWindow *window, int width, int height);
+VOID_API void        void_render_set_logical_size(const VoidWindow *window, int width, int height);
+VOID_API bool        void_render_clear(const VoidWindow *window, uint8 r, uint8 g, uint8 b, uint8 a);
+VOID_API void        void_render_present(const VoidWindow *window);
 
 // Reads keyboard state instantly without callbacks/event listeners
 VOID_API bool        void_input_is_key_pressed(VoidKeyCode key);

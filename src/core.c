@@ -59,6 +59,6 @@ void void_exit(void) {
     void_log_exit();
 }
 
-uint32 void_system_get_core_count(void) {
+uint32 void_get_core_count(void) {
     return SDL_GetCPUCount();
 }

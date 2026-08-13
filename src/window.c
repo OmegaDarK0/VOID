@@ -1,45 +1,40 @@
-#include <SDL2/SDL.h>
 #include <stdalign.h>
+#include "internal.h"
 #include "void.h"
 
-struct VoidWindow {
-    SDL_Window* handle;
-    SDL_Renderer* render;
-    bool is_running, should_close;
-};
-
-struct VoidRender {
-    SDL_Renderer* handle;
-};
-
-struct VoidPoint {
-    float x, y;
-};
-
-struct VoidRect {
-    float x, y, w, h;
-};
-
-VoidWindow *void_window_create(const char *title, const uint32 width, const uint32 height) {
+// ============================================================================
+// 1. CREATION & LIFECYCLE
+// ============================================================================
+VoidWindow *void_window_create(const char *title, const int x, const int y, const uint32 w, const uint32 h, const VoidWindowFlags w_flags, const VoidRenderFlags r_flags) {
     const VoidArenaMarker marker = void_arena_get_marker();
     VoidWindow* window = void_arena_alloc(sizeof(VoidWindow), alignof(VoidWindow));
     if (window == NULL) {
         VOID_LOG_ERROR("Window allocation failed!");
         return NULL;
     }
-    window->handle = SDL_CreateWindow(title,
-        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        (int)width, (int)height,
-        SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI
-        );
+    uint32 sdl_w_flags = VOID_WINDOW_DEFAULT | SDL_WINDOW_ALLOW_HIGHDPI;
+    if (w_flags & VOID_WINDOW_FULLSCREEN) sdl_w_flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+    if (w_flags & VOID_WINDOW_OPENGL)     sdl_w_flags |= SDL_WINDOW_OPENGL;
+    if (w_flags & VOID_WINDOW_SHOWN)      sdl_w_flags |= SDL_WINDOW_SHOWN;
+    if (w_flags & VOID_WINDOW_HIDDEN)     sdl_w_flags |= SDL_WINDOW_HIDDEN;
+    if (w_flags & VOID_WINDOW_BORDERLESS) sdl_w_flags |= SDL_WINDOW_BORDERLESS;
+    if (w_flags & VOID_WINDOW_RESIZABLE)  sdl_w_flags |= SDL_WINDOW_RESIZABLE;
+    if (w_flags & VOID_WINDOW_MINIMIZED)  sdl_w_flags |= SDL_WINDOW_MINIMIZED;
+    if (w_flags & VOID_WINDOW_MAXIMIZED)  sdl_w_flags |= SDL_WINDOW_MAXIMIZED;
+    if (w_flags & VOID_WINDOW_GRABBED)    sdl_w_flags |= SDL_WINDOW_MOUSE_GRABBED;
+    window->handle = SDL_CreateWindow(title, x, y, (int)w, (int)h, sdl_w_flags);
     if (window->handle == NULL) {
         void_arena_rollback_to(marker);
         VOID_LOG_ERROR("SDL_CreateWindow failed: %s", SDL_GetError());
         return NULL;
     }
-    window->render = SDL_CreateRenderer(window->handle, -1,
-        SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
-        );
+    uint32 sdl_r_flags = VOID_RENDER_DEFAULT;
+    if (r_flags & VOID_RENDER_SOFTWARE)      sdl_r_flags |= SDL_RENDERER_SOFTWARE;
+    if (r_flags & VOID_RENDER_ACCELERATED)   sdl_r_flags |= SDL_RENDERER_ACCELERATED;
+    if (r_flags & VOID_RENDER_PRESENTVSYNC)  sdl_r_flags |= SDL_RENDERER_PRESENTVSYNC;
+    if (r_flags & VOID_RENDER_TARGETTEXTURE) sdl_r_flags |= SDL_RENDERER_TARGETTEXTURE;
+
+    window->render = SDL_CreateRenderer(window->handle, -1, sdl_r_flags);
     if (window->render == NULL) {
         SDL_DestroyWindow(window->handle);
         void_arena_rollback_to(marker);
@@ -48,162 +43,119 @@ VoidWindow *void_window_create(const char *title, const uint32 width, const uint
     }
     window->is_running = true;
     window->should_close = false;
-    VOID_LOG_OK("Window created! (addr: %p)", window);
+    VOID_LOG_OK("Window and Renderer created! (addr: %p)", window);
     return window;
 }
 
 void void_window_destroy(const VoidWindow *window) {
-    if (window == NULL) {
-        VOID_LOG_WARN("Window already destroyed!");
-        return;
-    }
+    if (window == NULL) return;
     if (window->render) SDL_DestroyRenderer(window->render);
     if (window->handle) SDL_DestroyWindow(window->handle);
     VOID_LOG_INFO("Window destroyed.");
 }
 
-void void_window_close(VoidWindow *window) {
-    window->is_running = false;
-}
-
-bool void_window_is_running(const VoidWindow *window) {
-    return window->is_running;
-}
-
-bool void_window_should_close(const VoidWindow *window) {
-    return window->should_close;
-}
+void void_window_close(VoidWindow *window) { window->is_running = false; }
+bool void_window_is_running(const VoidWindow *window) { return window->is_running; }
+bool void_window_should_close(const VoidWindow *window) { return window->should_close; }
 
 void void_window_poll_events(VoidWindow *window) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
-        switch (event.type) {
-            case SDL_QUIT:
-                window->should_close = true;
-                break;
-            default:
-                break;
+        if (event.type == SDL_QUIT) {
+            window->should_close = true;
         }
     }
 }
 
-VoidRender *void_window_get_render(const VoidWindow *window) {
-    return (VoidRender*) window->render;
+// ============================================================================
+// 2. WINDOW SETTERS
+// ============================================================================
+void void_window_set_title(const VoidWindow *window, const char *title) {
+    if (window && window->handle && title) SDL_SetWindowTitle(window->handle, title);
+}
+
+void void_window_set_position(const VoidWindow *window, const int x, const int y) {
+    if (window && window->handle) SDL_SetWindowPosition(window->handle, x, y);
+}
+
+void void_window_set_size(const VoidWindow *window, const int width, const int height) {
+    if (window && window->handle) SDL_SetWindowSize(window->handle, width, height);
+}
+
+void void_window_set_fullscreen(const VoidWindow *window, const bool fullscreen) {
+    if (window && window->handle) SDL_SetWindowFullscreen(window->handle, fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+}
+
+void void_window_set_bordered(const VoidWindow *window, const bool bordered) {
+    if (window && window->handle) SDL_SetWindowBordered(window->handle, bordered ? SDL_TRUE : SDL_FALSE);
+}
+
+void void_window_set_resizable(const VoidWindow *window, const bool resizable) {
+    if (window && window->handle) SDL_SetWindowResizable(window->handle, resizable ? SDL_TRUE : SDL_FALSE);
+}
+
+void void_window_set_grabbed(const VoidWindow *window, const bool grabbed) {
+    if (window && window->handle) SDL_SetWindowMouseGrab(window->handle, grabbed ? SDL_TRUE : SDL_FALSE);
+}
+
+void void_window_show(const VoidWindow *window) {
+    if (window && window->handle) SDL_ShowWindow(window->handle);
+}
+
+void void_window_hide(const VoidWindow *window) {
+    if (window && window->handle) SDL_HideWindow(window->handle);
+}
+
+void void_window_maximize(const VoidWindow *window) {
+    if (window && window->handle) SDL_MaximizeWindow(window->handle);
+}
+
+void void_window_minimize(const VoidWindow *window) {
+    if (window && window->handle) SDL_MinimizeWindow(window->handle);
+}
+
+// ============================================================================
+// 3. WINDOW GETTERS
+// ============================================================================
+void void_window_get_position(const VoidWindow *window, int *x, int *y) {
+    if (window && window->handle) SDL_GetWindowPosition(window->handle, x, y);
 }
 
 void void_window_get_size(const VoidWindow *window, int *width, int *height) {
-    if (window == NULL || window->handle == NULL) {
-        if (width) *width = 0;
-        if (height) *height = 0;
-        return;
-    }
-    SDL_GetWindowSize(window->handle, width, height);
+    if (window && window->handle) SDL_GetWindowSize(window->handle, width, height);
 }
 
-void void_window_set_logical_size(const VoidWindow *window, const int width, const int height) {
-    if (window == NULL || window->render == NULL) return;
-    SDL_RenderSetLogicalSize(window->render, width, height);
+// ============================================================================
+// 4. WINDOW STATUS (IS?)
+// ============================================================================
+bool void_window_is_fullscreen(const VoidWindow *window) {
+    if (!window || !window->handle) return false;
+    return (SDL_GetWindowFlags(window->handle) & SDL_WINDOW_FULLSCREEN_DESKTOP) != 0;
 }
 
-bool void_render_clear(const VoidWindow *window, const uint8 r, const uint8 g, const uint8 b, const uint8 a) {
-    if (SDL_SetRenderDrawColor(window->render, r, g, b, a) < 0) {
-        VOID_LOG_ERROR("SDL_SetRenderDrawColor failed: %s", SDL_GetError());
-        return false;
-    }
-    if (SDL_RenderClear(window->render) < 0) {
-        VOID_LOG_ERROR("SDL_RenderClear failed: %s", SDL_GetError());
-        return false;
-    }
-    return true;
+bool void_window_is_hidden(const VoidWindow *window) {
+    if (!window || !window->handle) return true;
+    return (SDL_GetWindowFlags(window->handle) & SDL_WINDOW_HIDDEN) != 0;
 }
 
-void void_render_present(const VoidWindow *window) {
-    SDL_RenderPresent(window->render);
+bool void_window_is_maximized(const VoidWindow *window) {
+    if (!window || !window->handle) return false;
+    return (SDL_GetWindowFlags(window->handle) & SDL_WINDOW_MAXIMIZED) != 0;
 }
 
-bool void_render_point(const VoidWindow *window, const float x, const float y, const uint8 r, const uint8 g, const uint8 b, const uint8 a) {
-    if (SDL_SetRenderDrawColor(window->render, r, g, b, a) < 0) {
-        VOID_LOG_ERROR("SDL_SetRenderDrawColor failed: %s", SDL_GetError());
-        return false;
-    }
-    if (SDL_RenderDrawPointF(window->render, x, y) < 0) {
-        VOID_LOG_ERROR("SDL_RenderDrawPointF failed: %s", SDL_GetError());
-        return false;
-    }
-    return true;
+bool void_window_is_minimized(const VoidWindow *window) {
+    if (!window || !window->handle) return false;
+    return (SDL_GetWindowFlags(window->handle) & SDL_WINDOW_MINIMIZED) != 0;
 }
 
-bool void_render_line(const VoidWindow *window, const float x1, const float y1, const float x2, const float y2, const uint8 r, const uint8 g, const uint8 b, const uint8 a) {
-    if (SDL_SetRenderDrawColor(window->render, r, g, b, a) < 0) {
-        VOID_LOG_ERROR("SDL_SetRenderDrawColor failed: %s", SDL_GetError());
-        return false;
-    }
-    if (SDL_RenderDrawLineF(window->render, x1, y1, x2, y2) < 0) {
-        VOID_LOG_ERROR("SDL_RenderDrawLineF failed: %s", SDL_GetError());
-        return false;
-    }
-    return true;
+bool void_window_is_grabbed(const VoidWindow *window) {
+    if (!window || !window->handle) return false;
+    return (SDL_GetWindowFlags(window->handle) & SDL_WINDOW_MOUSE_GRABBED) != 0;
 }
 
-bool void_render_rect(const VoidWindow *window, const float x, const float y, const float w, const float h, const uint8 r, const uint8 g, const uint8 b, const uint8 a, const bool fill) {
-    if (SDL_SetRenderDrawColor(window->render, r, g, b, a) < 0) {
-        VOID_LOG_ERROR("SDL_SetRenderDrawColor failed: %s", SDL_GetError());
-        return false;
-    }
-    const SDL_FRect rect = {x, y, w, h};
-    if (fill) {
-        if (SDL_RenderFillRectF(window->render, &rect) < 0) {
-            VOID_LOG_ERROR("SDL_RenderFillRectF failed: %s", SDL_GetError());
-            return false;
-        }
-    } else {
-        if (SDL_RenderDrawRectF(window->render, &rect) < 0) {
-            VOID_LOG_ERROR("SDL_RenderDrawRectF failed: %s", SDL_GetError());
-            return false;
-        }
-    }
-    return true;
-}
-
-bool void_render_points(const VoidWindow *window, const VoidPoint *points, const int count, const uint8 r, const uint8 g, const uint8 b, const uint8 a) {
-    if (SDL_SetRenderDrawColor(window->render, r, g, b, a) < 0) {
-        VOID_LOG_ERROR("SDL_SetRenderDrawColor failed: %s", SDL_GetError());
-        return false;
-    }
-    if (SDL_RenderDrawPointsF(window->render, (const SDL_FPoint*)points, count) < 0) {
-        VOID_LOG_ERROR("SDL_RenderDrawPointsF failed: %s", SDL_GetError());
-        return false;
-    }
-    return true;
-}
-
-bool void_render_lines(const VoidWindow *window, const VoidPoint *points, const int count, const uint8 r, const uint8 g, const uint8 b, const uint8 a) {
-    if (SDL_SetRenderDrawColor(window->render, r, g, b, a) < 0) {
-        VOID_LOG_ERROR("SDL_SetRenderDrawColor failed: %s", SDL_GetError());
-        return false;
-    }
-    if (SDL_RenderDrawLinesF(window->render, (const SDL_FPoint*)points, count) < 0) {
-        VOID_LOG_ERROR("SDL_RenderDrawLinesF failed: %s", SDL_GetError());
-        return false;
-    }
-    return true;
-}
-
-bool void_render_rects(const VoidWindow *window, const VoidRect *rects, const int count, const uint8 r, const uint8 g, const uint8 b, const uint8 a, const bool fill) {
-    if (SDL_SetRenderDrawColor(window->render, r, g, b, a) < 0) {
-        VOID_LOG_ERROR("SDL_SetRenderDrawColor failed: %s", SDL_GetError());
-        return false;
-    }
-    if (fill) {
-        if (SDL_RenderFillRectsF(window->render, (const SDL_FRect*)rects, count) < 0) {
-            VOID_LOG_ERROR("SDL_RenderFillRectsF failed: %s", SDL_GetError());
-            return false;
-        }
-    } else {
-        if (SDL_RenderDrawRectsF(window->render, (const SDL_FRect*)rects, count) < 0) {
-            VOID_LOG_ERROR("SDL_RenderDrawRectsF failed: %s", SDL_GetError());
-            return false;
-        }
-    }
-    return true;
+// ============================================================================
+// 5. RENDER API
+// ============================================================================
+VoidRender *void_window_get_render(const VoidWindow *window) {
+    return (VoidRender*) window->render;
 }

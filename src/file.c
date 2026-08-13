@@ -56,7 +56,6 @@ void* void_file_read(const char *filepath, uint64 *out_size) {
         if (out_size) *out_size = 0;
         return NULL;
     }
-
     struct stat statbuf;
     if (fstat(fd, &statbuf) < 0) {
         VOID_LOG_ERROR("Failed to get file size: %s", filepath);

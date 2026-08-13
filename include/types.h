@@ -5,14 +5,47 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#define KB 1024
-#define MB (1024 * KB)
-#define GB (1024 * MB)
+// IEC Standards
+#define KiB (1024ULL)
+#define MiB (1024ULL * KiB)
+#define GiB (1024ULL * MiB)
+
+// SI Standards (Base 10)
+#define KB (1000ULL)
+#define MB (1000ULL * KB)
+#define GB (1000ULL * MB)
+
+#define BYTES_TO_BITS(bytes) ((bytes) * 8ULL)
+#define BITS_TO_BYTES(bits)  (((bits) + 7ULL) / 8ULL)
 
 // ============================================================================
 // FUNDAMENTAL TYPES
 // ============================================================================
 // Guarantees data size, vital for Data-Oriented Design (SoA)
+
+#define VOID_WINDOWPOS_UNDEFINED 0x1FFF0000
+#define VOID_WINDOWPOS_CENTERED  0x2FFF0000
+
+typedef enum {
+    VOID_WINDOW_DEFAULT     = 0,
+    VOID_WINDOW_FULLSCREEN  = 1 << 0,
+    VOID_WINDOW_OPENGL      = 1 << 1,
+    VOID_WINDOW_SHOWN       = 1 << 2,
+    VOID_WINDOW_HIDDEN      = 1 << 3,
+    VOID_WINDOW_BORDERLESS  = 1 << 4,
+    VOID_WINDOW_RESIZABLE   = 1 << 5,
+    VOID_WINDOW_MINIMIZED   = 1 << 6,
+    VOID_WINDOW_MAXIMIZED   = 1 << 7,
+    VOID_WINDOW_GRABBED     = 1 << 8,
+} VoidWindowFlags;
+
+typedef enum {
+    VOID_RENDER_DEFAULT       = 0,
+    VOID_RENDER_SOFTWARE      = 1 << 0,
+    VOID_RENDER_ACCELERATED   = 1 << 1,
+    VOID_RENDER_PRESENTVSYNC  = 1 << 2,
+    VOID_RENDER_TARGETTEXTURE = 1 << 3
+} VoidRenderFlags;
 
 typedef enum {
     VOID_INIT_SDL = 1 << 0,
