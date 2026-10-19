@@ -8,7 +8,7 @@
 // ============================================================================
 
 static VoidTexture* void_texture_alloc(void) {
-    VoidTexture *texture = void_arena_alloc(sizeof(VoidTexture), alignof(VoidTexture));
+    VoidTexture *texture = void_arena_alloc(NULL, sizeof(VoidTexture), alignof(VoidTexture));
     if (!texture) {
         VOID_LOG_ERROR("Texture allocation failed in Arena!");
     }
@@ -25,18 +25,18 @@ static bool void_texture_query(VoidTexture *texture) {
 
 VoidTexture *void_texture_load(const VoidWindow *window, const char *filename) {
     if (!window || !window->render) return NULL;
-    const VoidArenaMarker marker = void_arena_get_marker();
+    const VoidScope scope = void_arena_push(NULL);
     VoidTexture *texture = void_texture_alloc();
     if (!texture) return NULL;
     texture->handle = IMG_LoadTexture(window->render, filename);
     if (!texture->handle) {
-        void_arena_rollback_to(marker);
+        void_arena_pop(NULL, scope);
         VOID_LOG_ERROR("IMG_LoadTexture failed: %s", IMG_GetError());
         return NULL;
     }
     if (!void_texture_query(texture)) {
         SDL_DestroyTexture(texture->handle);
-        void_arena_rollback_to(marker);
+        void_arena_pop(NULL, scope);
         return NULL;
     }
     return texture;
@@ -44,12 +44,12 @@ VoidTexture *void_texture_load(const VoidWindow *window, const char *filename) {
 
 VoidTexture* void_texture_create_from_pixels(const VoidWindow *window, const int w, const int h, const void *pixels) {
     if (!window || !window->render) return NULL;
-    const VoidArenaMarker marker = void_arena_get_marker();
+    const VoidScope scope = void_arena_push(NULL);
     VoidTexture *texture = void_texture_alloc();
     if (!texture) return NULL;
     texture->handle = SDL_CreateTexture(window->render, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, w, h);
     if (!texture->handle) {
-        void_arena_rollback_to(marker);
+        void_arena_pop(NULL, scope);
         VOID_LOG_ERROR("SDL_CreateTexture (Streaming) failed: %s", SDL_GetError());
         return NULL;
     }
@@ -68,12 +68,12 @@ void void_texture_update(const VoidTexture *texture, const void *pixels) {
 
 VoidTexture* void_texture_create_target(const VoidWindow *window, const int w, const int h) {
     if (!window || !window->render) return NULL;
-    const VoidArenaMarker marker = void_arena_get_marker();
+    const VoidScope scope = void_arena_push(NULL);
     VoidTexture *texture = void_texture_alloc();
     if (!texture) return NULL;
     texture->handle = SDL_CreateTexture(window->render, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, w, h);
     if (!texture->handle) {
-        void_arena_rollback_to(marker);
+        void_arena_pop(NULL, scope);
         VOID_LOG_ERROR("SDL_CreateTexture (Target) failed: %s", SDL_GetError());
         return NULL;
     }

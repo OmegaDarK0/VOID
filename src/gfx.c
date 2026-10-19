@@ -2,6 +2,14 @@
 #include "internal.h"
 #include "void.h"
 
+#ifndef M_PIf
+    #define M_PIf 3.14159265358979323846f
+#endif
+
+#ifndef M_PI
+    #define M_PI 3.14159265358979323846
+#endif
+
 // ============================================================================
 // TRIANGLE & QUAD
 // ============================================================================
@@ -50,7 +58,7 @@ bool void_gfx_draw_circle(const VoidWindow *window, const float x, const float y
     if (segments > 256) segments = 256;
     const float step = 2.0f * M_PIf / (float)segments;
     if (!fill) {
-        VoidPoint *pts = void_frame_alloc((segments + 1) * sizeof(VoidPoint), alignof(VoidPoint));
+        VoidPoint *pts = void_arena_alloc(NULL, (segments + 1) * sizeof(VoidPoint), alignof(VoidPoint));
         if (!pts) return false;
         for (int i = 0; i <= segments; ++i) {
             const float angle = (float)i * step;
@@ -61,8 +69,8 @@ bool void_gfx_draw_circle(const VoidWindow *window, const float x, const float y
     }
     const int num_vertices = segments + 1;
     const int num_indices = segments * 3;
-    SDL_Vertex *vertices = void_frame_alloc(num_vertices * sizeof(SDL_Vertex), alignof(SDL_Vertex));
-    int *indices = void_frame_alloc(num_indices * sizeof(int), alignof(int));
+    SDL_Vertex *vertices = void_arena_alloc(NULL, num_vertices * sizeof(SDL_Vertex), alignof(SDL_Vertex));
+    int *indices = void_arena_alloc(NULL, num_indices * sizeof(int), alignof(int));
     if (!vertices || !indices) return false;
     const SDL_Color col = {.r = r, .g = g, .b = b, .a = a};
     vertices[0].position.x = x;
@@ -95,7 +103,7 @@ bool void_gfx_draw_regular_polygon(const VoidWindow *window, const float x, cons
     if (!window || !window->render || radius <= 0.0f || sides < 3) return false;
     const float step = 2.0f * (float)M_PI / (float)sides;
     if (!fill) {
-        VoidPoint *pts = void_frame_alloc((sides + 1) * sizeof(VoidPoint), alignof(VoidPoint));
+        VoidPoint *pts = void_arena_alloc(NULL, (sides + 1) * sizeof(VoidPoint), alignof(VoidPoint));
         if (!pts) return false;
         for (int i = 0; i <= sides; ++i) {
             const float angle = rotation + (float)i * step;
@@ -106,8 +114,8 @@ bool void_gfx_draw_regular_polygon(const VoidWindow *window, const float x, cons
     }
     const int num_vertices = sides + 1;
     const int num_indices = sides * 3;
-    SDL_Vertex *vertices = void_frame_alloc(num_vertices * sizeof(SDL_Vertex), alignof(SDL_Vertex));
-    int *indices = void_frame_alloc(num_indices * sizeof(int), alignof(int));
+    SDL_Vertex *vertices = void_arena_alloc(NULL, num_vertices * sizeof(SDL_Vertex), alignof(SDL_Vertex));
+    int *indices = void_arena_alloc(NULL, num_indices * sizeof(int), alignof(int));
     if (!vertices || !indices) return false;
     const SDL_Color col = {.r = r, .g = g, .b = b, .a = a};
     vertices[0].position.x = x;
@@ -173,7 +181,7 @@ static bool is_polygon_convex(const VoidPoint *points, const int count) {
 bool void_gfx_draw_polygon(const VoidWindow *window, const VoidPoint *points, const int count, const uint8 r, const uint8 g, const uint8 b, const uint8 a, const bool fill) {
     if (!window || !window->render || !points || count < 3) return false;
     if (!fill) {
-        VoidPoint *pts = void_frame_alloc((count + 1) * sizeof(VoidPoint), alignof(VoidPoint));
+        VoidPoint *pts = void_arena_alloc(NULL, (count + 1) * sizeof(VoidPoint), alignof(VoidPoint));
         if (!pts) return false;
         for (int i = 0; i < count; ++i) {
             pts[i] = points[i];
@@ -183,10 +191,10 @@ bool void_gfx_draw_polygon(const VoidWindow *window, const VoidPoint *points, co
     }
     const int num_triangles = count - 2;
     const int num_indices = num_triangles * 3;
-    SDL_Vertex *vertices = void_frame_alloc(count * sizeof(SDL_Vertex), alignof(SDL_Vertex));
-    int *indices = void_frame_alloc(num_indices * sizeof(int), alignof(int));
-    int *prev = void_frame_alloc(count * sizeof(int), alignof(int));
-    int *next = void_frame_alloc(count * sizeof(int), alignof(int));
+    SDL_Vertex *vertices = void_arena_alloc(NULL, count * sizeof(SDL_Vertex), alignof(SDL_Vertex));
+    int *indices = void_arena_alloc(NULL, num_indices * sizeof(int), alignof(int));
+    int *prev = void_arena_alloc(NULL, count * sizeof(int), alignof(int));
+    int *next = void_arena_alloc(NULL, count * sizeof(int), alignof(int));
     if (!vertices || !indices || !prev || !next) return false;
     const SDL_Color col = {.r = r, .g = g, .b = b, .a = a};
     float area = 0.0f;
@@ -267,7 +275,7 @@ bool void_gfx_draw_ellipse(const VoidWindow *window, const float x, const float 
     if (segments > 256) segments = 256;
     const float step = 2.0f * M_PIf / (float)segments;
     if (!fill) {
-        VoidPoint *pts = void_frame_alloc((segments + 1) * sizeof(VoidPoint), alignof(VoidPoint));
+        VoidPoint *pts = void_arena_alloc(NULL, (segments + 1) * sizeof(VoidPoint), alignof(VoidPoint));
         if (!pts) return false;
         for (int i = 0; i <= segments; ++i) {
             const float angle = (float)i * step;
@@ -278,8 +286,8 @@ bool void_gfx_draw_ellipse(const VoidWindow *window, const float x, const float 
     }
     const int num_vertices = segments + 1;
     const int num_indices = segments * 3;
-    SDL_Vertex *vertices = void_frame_alloc(num_vertices * sizeof(SDL_Vertex), alignof(SDL_Vertex));
-    int *indices = void_frame_alloc(num_indices * sizeof(int), alignof(int));
+    SDL_Vertex *vertices = void_arena_alloc(NULL, num_vertices * sizeof(SDL_Vertex), alignof(SDL_Vertex));
+    int *indices = void_arena_alloc(NULL, num_indices * sizeof(int), alignof(int));
     if (!vertices || !indices) return false;
     const SDL_Color col = {.r = r, .g = g, .b = b, .a = a};
     vertices[0].position.x = x;
@@ -332,7 +340,7 @@ bool void_gfx_draw_rounded_rect(const VoidWindow *window, const float x, const f
     }
     const int corner_pts = 12;
     const int total_pts = corner_pts * 4;
-    VoidPoint *pts = void_frame_alloc(total_pts * sizeof(VoidPoint), alignof(VoidPoint));
+    VoidPoint *pts = void_arena_alloc(NULL, total_pts * sizeof(VoidPoint), alignof(VoidPoint));
     if (!pts) return false;
     const float c_x[4] = { x + w - corner_radius, x + corner_radius, x + corner_radius, x + w - corner_radius };
     const float c_y[4] = { y + h - corner_radius, y + h - corner_radius, y + corner_radius, y + corner_radius };
@@ -364,7 +372,7 @@ bool void_gfx_draw_pie(const VoidWindow *window, const float x, const float y, c
     if (segments > 256) segments = 256;
     const float step = angle_diff / (float)segments;
     if (!fill) {
-        VoidPoint *pts = void_frame_alloc((segments + 2) * sizeof(VoidPoint), alignof(VoidPoint));
+        VoidPoint *pts = void_arena_alloc(NULL, (segments + 2) * sizeof(VoidPoint), alignof(VoidPoint));
         if (!pts) return false;
         pts[0].x = x; 
         pts[0].y = y;
@@ -377,8 +385,8 @@ bool void_gfx_draw_pie(const VoidWindow *window, const float x, const float y, c
     }
     const int num_vertices = segments + 2;
     const int num_indices = segments * 3;
-    SDL_Vertex *vertices = void_frame_alloc(num_vertices * sizeof(SDL_Vertex), alignof(SDL_Vertex));
-    int *indices = void_frame_alloc(num_indices * sizeof(int), alignof(int));
+    SDL_Vertex *vertices = void_arena_alloc(NULL, num_vertices * sizeof(SDL_Vertex), alignof(SDL_Vertex));
+    int *indices = void_arena_alloc(NULL, num_indices * sizeof(int), alignof(int));
     if (!vertices || !indices) return false;
     const SDL_Color col = {.r = r, .g = g, .b = b, .a = a};
     vertices[0].position.x = x;
@@ -407,7 +415,7 @@ bool void_gfx_draw_bezier(const VoidWindow *window, const float x1, const float 
     if (!window || !window->render) return false;
     if (segments < 4) segments = 4;
     if (segments > 256) segments = 256;
-    VoidPoint *pts = void_frame_alloc((segments + 1) * sizeof(VoidPoint), alignof(VoidPoint));
+    VoidPoint *pts = void_arena_alloc(NULL, (segments + 1) * sizeof(VoidPoint), alignof(VoidPoint));
     if (!pts) return false;
     for (int i = 0; i <= segments; ++i) {
         const float t = (float)i / (float)segments;
@@ -433,8 +441,8 @@ bool void_gfx_draw_ring(const VoidWindow *window, const float x, const float y, 
     }
     const int num_vertices = segments * 2;
     const int num_indices = segments * 6;
-    SDL_Vertex *vertices = void_frame_alloc(num_vertices * sizeof(SDL_Vertex), alignof(SDL_Vertex));
-    int *indices = void_frame_alloc(num_indices * sizeof(int), alignof(int));
+    SDL_Vertex *vertices = void_arena_alloc(NULL, num_vertices * sizeof(SDL_Vertex), alignof(SDL_Vertex));
+    int *indices = void_arena_alloc(NULL, num_indices * sizeof(int), alignof(int));
     if (!vertices || !indices) return false;
     const SDL_Color col = {.r = r, .g = g, .b = b, .a = a};
     for (int i = 0; i < segments; ++i) {

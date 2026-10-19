@@ -6,8 +6,8 @@
 // 1. CREATION & LIFECYCLE
 // ============================================================================
 VoidWindow *void_window_create(const char *title, const int x, const int y, const uint32 w, const uint32 h, const VoidWindowFlags w_flags, const VoidRenderFlags r_flags) {
-    const VoidArenaMarker marker = void_arena_get_marker();
-    VoidWindow* window = void_arena_alloc(sizeof(VoidWindow), alignof(VoidWindow));
+    const VoidScope scope = void_arena_push(NULL);
+    VoidWindow* window = void_arena_alloc(NULL, sizeof(VoidWindow), alignof(VoidWindow));
     if (window == NULL) {
         VOID_LOG_ERROR("Window allocation failed!");
         return NULL;
@@ -24,7 +24,7 @@ VoidWindow *void_window_create(const char *title, const int x, const int y, cons
     if (w_flags & VOID_WINDOW_GRABBED)    sdl_w_flags |= SDL_WINDOW_MOUSE_GRABBED;
     window->handle = SDL_CreateWindow(title, x, y, (int)w, (int)h, sdl_w_flags);
     if (window->handle == NULL) {
-        void_arena_rollback_to(marker);
+        void_arena_pop(NULL, scope);
         VOID_LOG_ERROR("SDL_CreateWindow failed: %s", SDL_GetError());
         return NULL;
     }
@@ -37,7 +37,7 @@ VoidWindow *void_window_create(const char *title, const int x, const int y, cons
     window->render = SDL_CreateRenderer(window->handle, -1, sdl_r_flags);
     if (window->render == NULL) {
         SDL_DestroyWindow(window->handle);
-        void_arena_rollback_to(marker);
+        void_arena_pop(NULL, scope);
         VOID_LOG_ERROR("SDL_CreateRenderer failed: %s", SDL_GetError());
         return NULL;
     }

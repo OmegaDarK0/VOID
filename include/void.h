@@ -30,28 +30,43 @@ VOID_API void* void_library_get_symbol(void *handle, const char *symbol_name);
 VOID_API void  void_library_free(void *handle);
 
 // ============================================================================
-// MEMORY (memory.c)
+// MEMORY (memory.c) - Hierarchical & Scoped Arenas
 // ============================================================================
-// The Back-end allocates large blocks at startup via the OS.
-// The Front-end (C++) will request sub-blocks from these persistent arenas.
 
-VOID_API void  void_memory_print(void);
+// Initializes the master OS virtual memory block (returns the Root Arena)
+VOID_API VoidArena *void_memory_init(uint64 total_capacity);
+VOID_API void       void_memory_exit(void);
 
-VOID_API bool  void_memory_init(uint64 global_size, uint64 frame_size);
-VOID_API void  void_memory_exit(void);
+// Retrieves the master Root Arena or sets/gets the active Default Arena (used when arena == NULL)
+VOID_API void       void_memory_set_default_arena(VoidArena *arena);
+VOID_API VoidArena *void_memory_get_default_arena(void);
+VOID_API VoidArena *void_memory_get_root_arena(void);
 
-// Allocation from the global arena (persistent throughout the engine lifecycle)
-VOID_API void *void_arena_alloc(uint64 size, uint32 alignment);
+// Carves a new named sub-arena out of a parent arena (NULL parent = Root Arena)
+VOID_API VoidArena *void_arena_suballoc(VoidArena *parent, const char *name, uint64 capacity);
 
-// Temporary arena (reset every frame by the Front-end, zero-cost allocation)
-VOID_API void *void_frame_alloc(uint64 size, uint32 alignment);
-VOID_API void  void_frame_free(void);
+// Allocates or resizes memory from a specific arena (NULL arena = Default Arena)
+VOID_API void      *void_arena_alloc(VoidArena *arena, uint64 size, uint32 alignment);
+VOID_API void      *void_arena_realloc(VoidArena *arena, void *ptr, uint64 old_size, uint64 new_size, uint32 alignment);
 
-VOID_API VoidArenaMarker void_arena_get_marker(void);
-VOID_API void void_arena_rollback_to(VoidArenaMarker marker);
+// Cross-arena data promotion, zero-copy top-of-stack move, and string utilities
+VOID_API void      *void_arena_memdup(VoidArena *dst_arena, const void *src_ptr, uint64 size, uint32 alignment);
+VOID_API void      *void_arena_memmove(VoidArena *dst_arena, VoidArena *src_arena, void *src_ptr, uint64 size, uint32 alignment);
+VOID_API char      *void_arena_strdup(VoidArena *dst_arena, const char *str);
+VOID_API char      *void_arena_strndup(VoidArena *dst_arena, const char *str, uint64 max_len);
+VOID_API char      *void_arena_sprintf(VoidArena *dst_arena, const char *fmt, ...);
 
-VOID_API VoidArenaMarker void_frame_get_marker(void);
-VOID_API void void_frame_rollback_to(VoidArenaMarker marker);
+// Resets an arena's offset to 0 in O(1)
+VOID_API void       void_arena_reset(VoidArena *arena);
+
+// Scoped Memory Management (O(1) hierarchical lifecycles)
+VOID_API VoidScope  void_arena_push(const VoidArena *arena);
+VOID_API void       void_arena_pop(VoidArena *arena, VoidScope scope);
+
+// Telemetry & Real-time Monitoring
+VOID_API void       void_arena_print(const VoidArena *arena);
+VOID_API void       void_memory_print(void);
+VOID_API void       void_memory_monitor(uint32 interval_ms);
 
 // ============================================================================
 // WINDOW & INPUT (window.c / input.c)

@@ -3,13 +3,13 @@
 #include "void.h"
 
 VoidSound* void_audio_load_sound(const char *filepath) {
-    const VoidArenaMarker marker = void_arena_get_marker();
-    VoidSound *sound = void_arena_alloc(sizeof(VoidSound), alignof(VoidSound));
+    const VoidScope scope = void_arena_push(NULL);
+    VoidSound *sound = void_arena_alloc(NULL, sizeof(VoidSound), alignof(VoidSound));
     if (!sound) return NULL;
     sound->handle = Mix_LoadWAV(filepath);
     if (!sound->handle) {
         VOID_LOG_ERROR("Mix_LoadWAV failed for %s: %s", filepath, Mix_GetError());
-        void_arena_rollback_to(marker);
+        void_arena_pop(NULL, scope);
         return NULL;
     }
     return sound;
@@ -28,13 +28,13 @@ void void_audio_destroy_sound(const VoidSound *sound) {
 }
 
 VoidMusic* void_audio_load_music(const char *filepath) {
-    const VoidArenaMarker marker = void_arena_get_marker();
-    VoidMusic *music = void_arena_alloc(sizeof(VoidMusic), alignof(VoidMusic));
+    const VoidScope scope = void_arena_push(NULL);
+    VoidMusic *music = void_arena_alloc(NULL, sizeof(VoidMusic), alignof(VoidMusic));
     if (!music) return NULL;
     music->handle = Mix_LoadMUS(filepath);
     if (!music->handle) {
         VOID_LOG_ERROR("Mix_LoadMUS failed for %s: %s", filepath, Mix_GetError());
-        void_arena_rollback_to(marker);
+        void_arena_pop(NULL, scope);
         return NULL;
     }
     return music;

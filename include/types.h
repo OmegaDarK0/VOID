@@ -106,11 +106,15 @@ typedef enum {
 } VoidKeyCode;
 
 typedef struct VoidArena {
+    const char *name;   // ENGINE, SESSION, LEVEL, FRAME, SCRATCH
     uint8_t *base;
     uint64_t capacity, offset;
+    volatile uint32_t lock;
 } VoidArena;
 
-typedef uint64_t VoidArenaMarker;
+typedef struct VoidScope {
+    uint64_t offset_backup;
+} VoidScope;
 
 typedef void (*VoidThreadFunc)(void *data);
 
@@ -141,6 +145,11 @@ typedef struct VoidRect {
 
 typedef struct VoidSound VoidSound;
 typedef struct VoidMusic VoidMusic;
+
+typedef int8_t   int8;
+typedef int16_t  int16;
+typedef int32_t  int32;
+typedef int64_t  int64;
 
 typedef uint8_t  uint8;
 typedef uint16_t uint16;

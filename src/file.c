@@ -24,8 +24,8 @@ void* void_file_read(const char *filepath, uint64 *out_size) {
         return NULL;
     }
     const uint64 size = (uint64)file_size.QuadPart;
-    const VoidArenaMarker marker = void_arena_get_marker();
-    void *buffer = void_arena_alloc(size + 1, 1);
+    const VoidScope scope = void_arena_push(NULL);
+    void *buffer = void_arena_alloc(NULL, size + 1, 1);
     if (!buffer) {
         VOID_LOG_ERROR("Arena allocation failed for file: %s (%" PRIu64 " bytes)", filepath, size);
         CloseHandle(file);
@@ -40,7 +40,7 @@ void* void_file_read(const char *filepath, uint64 *out_size) {
         DWORD bytes_read = 0;
         if (!ReadFile(file, ptr, bytes_to_read, &bytes_read, NULL) || bytes_read == 0) {
             VOID_LOG_ERROR("Failed to read entire file: %s", filepath);
-            void_arena_rollback_to(marker);
+            void_arena_pop(NULL, scope);
             CloseHandle(file);
             if (out_size) *out_size = 0;
             return NULL;
@@ -64,8 +64,8 @@ void* void_file_read(const char *filepath, uint64 *out_size) {
         return NULL;
     }
     const uint64 size = (uint64)statbuf.st_size;
-    const VoidArenaMarker marker = void_arena_get_marker();
-    void *buffer = void_arena_alloc(size + 1, 1);
+    const VoidScope scope = void_arena_push(NULL);
+    void *buffer = void_arena_alloc(NULL, size + 1, 1);
     if (!buffer) {
         VOID_LOG_ERROR("Arena allocation failed for file: %s (%" PRIu64 " bytes)", filepath, size);
         close(fd);
@@ -78,7 +78,7 @@ void* void_file_read(const char *filepath, uint64 *out_size) {
         const ssize_t bytes_read = read(fd, ptr, size - total_read);
         if (bytes_read <= 0) {
             VOID_LOG_ERROR("Failed to read entire file: %s", filepath);
-            void_arena_rollback_to(marker);
+            void_arena_pop(NULL, scope);
             close(fd);
             if (out_size) *out_size = 0;
             return NULL;
