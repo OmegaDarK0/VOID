@@ -6,6 +6,18 @@ void void_render_set_logical_size(const VoidWindow *window, const int width, con
     SDL_RenderSetLogicalSize(window->render, width, height);
 }
 
+void void_render_set_driver(const char *driver_name) {
+    if (driver_name) SDL_SetHint(SDL_HINT_RENDER_DRIVER, driver_name);
+}
+
+void void_render_set_filter(const VoidFilterMode mode) {
+    switch (mode) {
+        case VOID_FILTER_NEAREST: SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0"); break;
+        case VOID_FILTER_LINEAR:  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1"); break;
+        case VOID_FILTER_BEST:    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2"); break;
+    }
+}
+
 bool void_render_clear(const VoidWindow *window, const uint8 r, const uint8 g, const uint8 b, const uint8 a) {
     if (SDL_SetRenderDrawColor(window->render, r, g, b, a) < 0) return false;
     if (SDL_RenderClear(window->render) < 0) return false;

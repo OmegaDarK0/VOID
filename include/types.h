@@ -27,6 +27,12 @@
 #define VOID_WINDOWPOS_CENTERED  0x2FFF0000
 
 typedef enum {
+    VOID_INIT_SDL = 1 << 0,
+    VOID_INIT_IMG = 1 << 1,
+    VOID_INIT_MIX = 1 << 2,
+} VoidInitFlag;
+
+typedef enum {
     VOID_WINDOW_DEFAULT     = 0,
     VOID_WINDOW_FULLSCREEN  = 1 << 0,
     VOID_WINDOW_OPENGL      = 1 << 1,
@@ -48,10 +54,27 @@ typedef enum {
 } VoidRenderFlags;
 
 typedef enum {
-    VOID_INIT_SDL = 1 << 0,
-    VOID_INIT_IMG = 1 << 1,
-    VOID_INIT_MIX = 1 << 2,
-} VoidInitFlag;
+    VOID_FILTER_NEAREST,
+    VOID_FILTER_LINEAR,
+    VOID_FILTER_BEST
+} VoidFilterMode;
+
+typedef enum {
+    VOID_BLEND_NONE              = 0x00000000,
+    VOID_BLEND_BLEND             = 0x00000001,
+    VOID_BLEND_ADD               = 0x00000002,
+    VOID_BLEND_MOD               = 0x00000004,
+    VOID_BLEND_MUL               = 0x00000008,
+    VOID_BLEND_PREMULTIPLIED     = 0x00000010,
+    VOID_BLEND_ADD_PREMULTIPLIED = 0x00000020
+} VoidBlendMode;
+
+typedef enum {
+    VOID_FLIP_NONE       = 0x00000000,
+    VOID_FLIP_HORIZONTAL = 0x00000001,
+    VOID_FLIP_VERTICAL   = 0x00000002,
+    VOID_FLIP_BOTH       = 0x00000003
+} VoidFlipMode;
 
 typedef enum {
     VOID_LOG_DEBUG,
@@ -82,20 +105,39 @@ typedef enum {
     VOID_KEY_F7, VOID_KEY_F8, VOID_KEY_F9, VOID_KEY_F10, VOID_KEY_F11, VOID_KEY_F12
 } VoidKeyCode;
 
-typedef struct VoidArena VoidArena;
-typedef uint64_t         VoidArenaMarker;
+typedef struct VoidArena {
+    uint8_t *base;
+    uint64_t capacity, offset;
+} VoidArena;
+
+typedef uint64_t VoidArenaMarker;
 
 typedef void (*VoidThreadFunc)(void *data);
 
-typedef struct VoidThread   VoidThread;
-typedef struct VoidLogEntry VoidLogEntry;
+typedef struct VoidThread {
+    VoidThreadFunc func;
+    void *data;
+} VoidThread;
+
+typedef struct VoidLogEntry {
+    VoidLogLevel level;
+    uint64_t timestamp;
+    uint32_t thread_id;
+    char text[256];
+    volatile uint32_t is_ready;
+} VoidLogEntry;
 
 typedef struct VoidWindow  VoidWindow;
 typedef struct VoidRender  VoidRender;
 typedef struct VoidTexture VoidTexture;
 
-typedef struct VoidPoint VoidPoint;
-typedef struct VoidRect  VoidRect;
+typedef struct VoidPoint {
+    float x, y;
+} VoidPoint;
+
+typedef struct VoidRect {
+    float x, y, w, h;
+} VoidRect;
 
 typedef struct VoidSound VoidSound;
 typedef struct VoidMusic VoidMusic;

@@ -1,14 +1,6 @@
-#include <SDL2/SDL_mixer.h>
 #include <stdalign.h>
+#include "internal.h"
 #include "void.h"
-
-struct VoidSound {
-    Mix_Chunk *handle;
-};
-
-struct VoidMusic {
-    Mix_Music *handle;
-};
 
 VoidSound* void_audio_load_sound(const char *filepath) {
     const VoidArenaMarker marker = void_arena_get_marker();

@@ -9,11 +9,6 @@
 
 #define MEMORY_PRINT_FACTOR 25
 
-struct VoidArena {
-    uint8 *base;
-    uint64 capacity, offset;
-};
-
 static VoidArena s_global_arena, s_frame_arena;
 static volatile uint32 s_arena_lock = 0;
 

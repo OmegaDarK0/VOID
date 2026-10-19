@@ -1,10 +1,11 @@
+#include <stdio.h>
+
 #ifdef _WIN32
 #include <windows.h>
 #else
 #include <dlfcn.h>
 #endif
 
-#include <stdio.h>
 #include "void.h"
 
 void* void_library_load(const char *filepath) {

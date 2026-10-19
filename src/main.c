@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include "void.h"
@@ -90,35 +91,43 @@ static void test_thread_fibers(void) {
 // ============================================================================
 static void test_render_loop(void) {
     VOID_LOG_INFO("[RENDER TEST] Creating window...");
+    void_render_set_driver("opengl");
+    void_render_set_filter(VOID_FILTER_LINEAR);
     VoidWindow *window = void_window_create(
         "VOID FRAMEWORK",
         VOID_WINDOWPOS_CENTERED, VOID_WINDOWPOS_CENTERED,
         WINDOW_WIDTH, WINDOW_HEIGHT,
         VOID_WINDOW_SHOWN | VOID_WINDOW_RESIZABLE,
-        VOID_RENDER_ACCELERATED | VOID_RENDER_PRESENTVSYNC
+        VOID_RENDER_ACCELERATED | VOID_RENDER_PRESENTVSYNC | VOID_RENDER_TARGETTEXTURE
         );
     if (!window) {
         VOID_LOG_FATAL("Failed to create window.");
         return;
     }
     void_render_set_logical_size(window, WINDOW_WIDTH, WINDOW_HEIGHT);
+    VOID_LOG_INFO("[RENDER TEST] Loading textures and FBO...");
+    const VoidTexture *sparkle = void_texture_load(window, "assets/gemini_sparkle.png");
+    VoidTexture *fbo = void_texture_create_target(window, 400, 400);
+    if (sparkle) {
+        VOID_LOG_OK("[RENDER TEST] 'gemini_sparkle.png' loaded successfully.");
+        void_texture_set_blend_mode(sparkle, VOID_BLEND_ADD);
+    } else {
+        VOID_LOG_WARN("[RENDER TEST] 'gemini_sparkle.png' not found. Texture test will run without it.");
+    }
     float player_x = WINDOW_WIDTH / 2.0f;
     float player_y = WINDOW_HEIGHT / 2.0f;
     float box_x = 100.0f;
     float box_y = 100.0f;
     float box_vel_x = 400.0f;
     float box_vel_y = 350.0f;
-    // --- TODO AUDIO ---
-    // VoidMusic* bgm = void_audio_load_music("assets/music.ogg");
-    // void_audio_play_music(bgm, -1);
-    // VoidSound* bounce_sfx = void_audio_load_sound("assets/bounce.wav");
+    double angle = 0.0;
     VOID_LOG_INFO("[RENDER TEST] Starting main loop.");
     while (void_window_is_running(window)) {
         const float box_size = 32.0f;
         const float player_speed = 600.0f;
         const float player_size = 64.0f;
-        // 1. TIME MANAGEMENT
         const float dt = void_time_get_delta();
+        angle += 90.0 * dt;
         // 2. OS EVENTS
         void_window_poll_events(window);
         if (void_window_should_close(window) || void_input_is_key_pressed(VOID_KEY_ESCAPE)) {
@@ -131,23 +140,66 @@ static void test_render_loop(void) {
         if (void_input_is_key_pressed(VOID_KEY_D)) player_x += player_speed * dt;
         box_x += box_vel_x * dt;
         box_y += box_vel_y * dt;
-        if (box_x <= 0 || box_x + box_size >= WINDOW_WIDTH) {
-            box_vel_x *= -1.0f;
-            // void_audio_play_sound(bounce_sfx);
+        if (box_x <= 0 || box_x + box_size >= WINDOW_WIDTH)  box_vel_x *= -1.0f;
+        if (box_y <= 0 || box_y + box_size >= WINDOW_HEIGHT) box_vel_y *= -1.0f;
+        // ==========================================
+        // 4. RENDERING PASS 1: FBO (Hors-Écran)
+        // ==========================================
+        if (fbo) {
+            void_window_set_render_target(window, fbo);
+            void_render_clear(window, 10, 10, 15, 255);
+            if (sparkle) {
+                const int tw = void_texture_get_width(sparkle);
+                const int th = void_texture_get_height(sparkle);
+                VoidPoint center = { .x = (float)tw / 2.0f, .y = (float)th / 2.0f };
+                void_texture_draw_ex(window, sparkle,
+                    0, 0, tw, th,
+                    200 - (float)tw/2.0f, 200 - (float)th/2.0f, (float)tw, (float)th,
+                    -angle * 2.0, &center, VOID_FLIP_NONE
+                    );
+            }
+            void_window_set_render_target(window, NULL);
         }
-        if (box_y <= 0 || box_y + box_size >= WINDOW_HEIGHT) {
-            box_vel_y *= -1.0f;
-            // void_audio_play_sound(bounce_sfx);
-        }
-        // 4. RENDERING
         void_render_clear(window, 20, 20, 25, 255);
         void_render_rect(window, box_x, box_y, box_size, box_size, 255, 50, 50, 255, true);
         void_render_rect(window, player_x, player_y, player_size, player_size, 50, 255, 100, 255, true);
+        void_gfx_draw_circle(window, WINDOW_WIDTH / 2.0f, WINDOW_HEIGHT / 2.0f, 150.0f, 50, 50, 50, 255, true);
+        void_gfx_draw_circle(window, WINDOW_WIDTH / 2.0f, WINDOW_HEIGHT / 2.0f, 150.0f, 255, 255, 255, 255, false);
+        const int star_points = 10;
+        VoidPoint star[10];
+        const float rot = (float)angle * 0.02f;
+        for (int i = 0; i < star_points; i++) {
+            const float star_radius_inner = 40.0f;
+            const float star_radius_outer = 100.0f;
+            const float r = i % 2 == 0 ? star_radius_outer : star_radius_inner;
+            const float a = rot + (float)i * (2.0f * 3.14159265f / (float)star_points);
+            star[i].x = WINDOW_WIDTH / 2.0f + cosf(a) * r;
+            star[i].y = WINDOW_HEIGHT / 2.0f + sinf(a) * r;
+        }
+        void_gfx_draw_polygon(window, star, star_points, 255, 200, 50, 255, true);
+        void_gfx_draw_polygon(window, star, star_points, 255, 100, 0, 255, false);
+        if (sparkle) {
+            const int tw = void_texture_get_width(sparkle);
+            const int th = void_texture_get_height(sparkle);
+            VoidPoint center = { .x = (float)tw / 2.0f, .y = (float)th / 2.0f };
+            void_texture_draw_ex(window, sparkle,
+                0, 0, tw, th,
+                player_x + player_size/2.0f - (float)tw/2.0f, player_y + player_size/2.0f - (float)th/2.0f, (float)tw, (float)th,
+                angle, &center, VOID_FLIP_NONE
+                );
+        }
+        if (fbo) {
+            void_texture_draw(window, fbo, 0, 0, 400, 400, WINDOW_WIDTH - 420, 20, 400, 400);
+            void_render_rect(window, WINDOW_WIDTH - 420, 20, 400, 400, 255, 255, 255, 255, false);
+        }
         void_render_present(window);
-        // 5. END OF FRAME CLEANUP
+        // 6. END OF FRAME CLEANUP
         void_log_flush();
         void_frame_free();
     }
+    VOID_LOG_INFO("[RENDER TEST] Cleaning up VRAM...");
+    void_texture_destroy(sparkle);
+    void_texture_destroy(fbo);
     VOID_LOG_INFO("[RENDER TEST] Closing window.");
     void_window_destroy(window);
 }

@@ -7,7 +7,7 @@
 #define IMG_INIT_FLAGS (IMG_INIT_JPG | IMG_INIT_PNG)
 #define MIX_INIT_FLAGS (MIX_INIT_FLAC | MIX_INIT_MOD | MIX_INIT_MP3 | MIX_INIT_OGG)
 
-uint8 s_init_state = 0;
+static uint8 s_init_state = 0;
 
 bool void_init(void) {
     void_log_init();

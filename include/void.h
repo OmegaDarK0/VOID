@@ -92,8 +92,12 @@ VOID_API bool void_window_is_grabbed(const VoidWindow *window);
 // --- 5. Render API ---
 VOID_API VoidRender *void_window_get_render(const VoidWindow *window);
 VOID_API void        void_render_set_logical_size(const VoidWindow *window, int width, int height);
-VOID_API bool        void_render_clear(const VoidWindow *window, uint8 r, uint8 g, uint8 b, uint8 a);
-VOID_API void        void_render_present(const VoidWindow *window);
+
+// --- System Render Hints ---
+// Call BEFORE window creation to force a graphics API
+VOID_API void void_render_set_driver(const char *driver_name);
+// Call before loading/creating a texture to set its sampling quality
+VOID_API void void_render_set_filter(VoidFilterMode mode);
 
 // Reads keyboard state instantly without callbacks/event listeners
 VOID_API bool        void_input_is_key_pressed(VoidKeyCode key);
@@ -126,6 +130,48 @@ VOID_API bool         void_texture_draw(const VoidWindow *window, const VoidText
 // Texture getters (Cached internally)
 VOID_API int void_texture_get_width(const VoidTexture *texture);
 VOID_API int void_texture_get_height(const VoidTexture *texture);
+
+// --- VRAM & FBO (Render Targets) ---
+VOID_API VoidTexture* void_texture_create_from_pixels(const VoidWindow *window, int w, int h, const void *pixels);
+VOID_API void         void_texture_update(const VoidTexture *texture, const void *pixels);
+VOID_API VoidTexture* void_texture_create_target(const VoidWindow *window, int w, int h);
+VOID_API bool         void_window_set_render_target(VoidWindow *window, VoidTexture *target);
+
+// --- Blending ---
+VOID_API void void_texture_set_color(const VoidTexture *texture, uint8 r, uint8 g, uint8 b);
+VOID_API void void_texture_set_alpha(const VoidTexture *texture, uint8 a);
+VOID_API void void_texture_set_blend_mode(const VoidTexture *texture, VoidBlendMode mode);
+
+// --- ---
+VOID_API bool void_texture_draw_ex(const VoidWindow *window, const VoidTexture *texture,
+                                   int src_x, int src_y, int src_w, int src_h,
+                                   float dst_x, float dst_y, float dst_w, float dst_h,
+                                   double angle, const VoidPoint *center, VoidFlipMode flip);
+
+// ============================================================================
+// ADVANCED GEOMETRY (gfx.c) - Zero Allocation
+// ============================================================================
+
+VOID_API bool void_gfx_draw_triangle(const VoidWindow *window, float x1, float y1, float x2, float y2, float x3, float y3, uint8 r, uint8 g, uint8 b, uint8 a, bool fill);
+VOID_API bool void_gfx_draw_quad(const VoidWindow *window, float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4, uint8 r, uint8 g, uint8 b, uint8 a, bool fill);
+VOID_API bool void_gfx_draw_circle(const VoidWindow *window, float x, float y, float radius, uint8 r, uint8 g, uint8 b, uint8 a, bool fill);
+
+// Concave Polygon Triangulation (Ear Clipping)
+VOID_API bool void_gfx_draw_regular_polygon(const VoidWindow *window, float x, float y, float radius, int sides, float rotation, uint8 r, uint8 g, uint8 b, uint8 a, bool fill);
+VOID_API bool void_gfx_draw_polygon(const VoidWindow *window, const VoidPoint *points, int count, uint8 r, uint8 g, uint8 b, uint8 a, bool fill);
+
+// --- Advanced Polished Shapes ---
+VOID_API bool void_gfx_draw_ellipse(const VoidWindow *window, float x, float y, float radius_x, float radius_y, uint8 r, uint8 g, uint8 b, uint8 a, bool fill);
+VOID_API bool void_gfx_draw_thick_line(const VoidWindow *window, float x1, float y1, float x2, float y2, float thickness, uint8 r, uint8 g, uint8 b, uint8 a);
+VOID_API bool void_gfx_draw_rounded_rect(const VoidWindow *window, float x, float y, float w, float h, float corner_radius, uint8 r, uint8 g, uint8 b, uint8 a, bool fill);
+
+VOID_API bool void_gfx_draw_pie(const VoidWindow *window, float x, float y, float radius, float start_angle, float end_angle, uint8 r, uint8 g, uint8 b, uint8 a, bool fill);
+VOID_API bool void_gfx_draw_bezier(const VoidWindow *window, float x1, float y1, float cx, float cy, float x2, float y2, int segments, uint8 r, uint8 g, uint8 b, uint8 a);
+VOID_API bool void_gfx_draw_ring(const VoidWindow *window, float x, float y, float inner_radius, float outer_radius, uint8 r, uint8 g, uint8 b, uint8 a, bool fill);
+VOID_API bool void_gfx_draw_capsule(const VoidWindow *window, float x, float y, float w, float h, uint8 r, uint8 g, uint8 b, uint8 a, bool fill);
+
+// --- The Ultimate Feature: Textured Geometry ---
+VOID_API bool void_gfx_draw_textured_quad(const VoidWindow *window, const VoidTexture *texture, const VoidPoint *pts, const VoidPoint *uvs, uint8 r, uint8 g, uint8 b, uint8 a);
 
 // ============================================================================
 // LOW-LEVEL THREADING (thread.c)

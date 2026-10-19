@@ -3,11 +3,6 @@
 
 #define MAX_WORKER_THREADS 64
 
-struct VoidThread {
-    VoidThreadFunc func;
-    void *data;
-};
-
 static VoidThread s_threads[MAX_WORKER_THREADS];
 static volatile uint32 s_thread_count = 0;
 

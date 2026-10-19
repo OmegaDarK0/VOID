@@ -2,7 +2,8 @@
 #define VOID_INTERNAL_H
 
 #include <SDL2/SDL.h>
-#include <stdbool.h>
+#include <SDL2/SDL_mixer.h>
+#include "types.h"
 
 // ============================================================================
 // INTERNAL OPAQUE STRUCTURES (Shared between VOID source files)
@@ -18,12 +19,18 @@ struct VoidRender {
     SDL_Renderer* handle;
 };
 
-struct VoidPoint {
-    float x, y;
+struct VoidTexture {
+    SDL_Texture *handle;
+    uint32 format;
+    int access, width, height;
 };
 
-struct VoidRect {
-    float x, y, w, h;
+struct VoidSound {
+    Mix_Chunk *handle;
+};
+
+struct VoidMusic {
+    Mix_Music *handle;
 };
 
 #endif //VOID_INTERNAL_H

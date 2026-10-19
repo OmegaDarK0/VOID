@@ -22,14 +22,6 @@
 #define CYAN    "\x1b[36m"
 #define SCARLET "\x1b[37;41;1m"
 
-struct VoidLogEntry{
-    VoidLogLevel level;
-    uint64 timestamp;
-    uint32 thread_id;
-    char text[MAX_LOG_LENGTH];
-    volatile uint32 is_ready;
-};
-
 static VoidLogEntry s_log_buffer[MAX_LOG_ENTRIES];
 
 static volatile uint32 s_log_head = 0;
