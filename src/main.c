@@ -102,6 +102,25 @@ static void test_thread_fibers(void) {
 // ============================================================================
 // TEST 5: RENDERING, AUDIO, DELTA TIME, INPUT (KEYBOARD, MOUSE & GAMEPAD)
 // ============================================================================
+static void play_spatialized_sfx(const VoidSound *sfx, const float src_x, const float src_y, const float listener_x, const float listener_y, const float max_dist) {
+    if (!sfx) return;
+    const float dx = src_x - listener_x;
+    const float dy = src_y - listener_y;
+    const float dist = sqrtf(dx * dx + dy * dy);
+    float norm_dist = (dist / max_dist) * 255.0f;
+    if (norm_dist > 255.0f) norm_dist = 255.0f;
+    if (norm_dist < 0.0f)   norm_dist = 0.0f;
+    const uint8 final_dist = (uint8)norm_dist;
+    const float rad = atan2f(dx, -dy);
+    const float deg = rad * (180.0f / 3.14159265f);
+    int16 final_angle = (int16)deg;
+    if (final_angle < 0) final_angle += 360;
+    const int32 channel = void_audio_play_sound(sfx);
+    if (channel >= 0) {
+        void_audio_set_channel_position(channel, final_angle, final_dist);
+    }
+}
+
 static void test_render_loop(void) {
     VOID_LOG_INFO("[RENDER TEST] Creating window (allocated in ROOT_MASTER)...");
     void_render_set_driver("opengl");
@@ -118,7 +137,7 @@ static void test_render_loop(void) {
         return;
     }
     void_render_set_logical_size(window, WINDOW_WIDTH, WINDOW_HEIGHT);
-    VOID_LOG_INFO("[RENDER TEST] Loading textures and FBO...");
+    VOID_LOG_INFO("[RENDER TEST] Loading textures, FBO and audio...");
     const VoidTexture *sparkle = void_texture_load(window, "assets/gemini_sparkle.png");
     VoidTexture *fbo = void_texture_create_target(window, 400, 400);
     if (sparkle) {
@@ -126,6 +145,12 @@ static void test_render_loop(void) {
         void_texture_set_blend_mode(sparkle, VOID_BLEND_ADD);
     } else {
         VOID_LOG_WARN("[RENDER TEST] 'gemini_sparkle.png' not found. Texture test will run without it.");
+    }
+    const VoidSound *bounce_sfx = void_audio_load_sound("assets/bounce.wav");
+    if (bounce_sfx) {
+        VOID_LOG_OK("[AUDIO TEST] 'bounce.wav' loaded successfully.");
+    } else {
+        VOID_LOG_WARN("[AUDIO TEST] 'bounce.wav' not found in assets/.");
     }
     void_memory_set_default_arena(s_frame_arena);
     void_input_set_gamepad_deadzone(0.15f);
@@ -175,8 +200,25 @@ static void test_render_loop(void) {
         if (player_y + player_size > WINDOW_HEIGHT) player_y = WINDOW_HEIGHT - player_size;
         box_x += box_vel_x * dt;
         box_y += box_vel_y * dt;
-        if (box_x <= 0 || box_x + box_size >= WINDOW_WIDTH)  box_vel_x *= -1.0f;
-        if (box_y <= 0 || box_y + box_size >= WINDOW_HEIGHT) box_vel_y *= -1.0f;
+        bool collided = false;
+        if (box_x <= 0.0f || box_x + box_size >= WINDOW_WIDTH) {
+            box_vel_x *= -1.0f;
+            collided = true;
+        }
+        if (box_y <= 0.0f || box_y + box_size >= WINDOW_HEIGHT) {
+            box_vel_y *= -1.0f;
+            collided = true;
+        }
+        if (collided && bounce_sfx) {
+            play_spatialized_sfx(
+                bounce_sfx,
+                box_x + box_size * 0.5f,
+                box_y + box_size * 0.5f,
+                player_x + player_size * 0.5f,
+                player_y + player_size * 0.5f,
+                1000.0f
+            );
+        }
         // 5. RENDERING PASS 1: FBO
         if (fbo) {
             void_window_set_render_target(window, fbo);
@@ -247,6 +289,7 @@ static void test_render_loop(void) {
         void_log_flush();
         void_arena_reset(s_frame_arena);
     }
+    void_audio_destroy_sound(bounce_sfx);
     void_memory_set_default_arena(NULL);
     VOID_LOG_INFO("[RENDER TEST] Cleaning up VRAM...");
     void_texture_destroy(sparkle);

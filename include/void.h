@@ -231,11 +231,13 @@ VOID_API void void_log_exit(void);
 VOID_API void* void_file_read(const char *filepath, uint64 *out_size);
 
 // ============================================================================
-// AUDIO MIXER (audio.c)
+// AUDIO MIXER & SPATIALIZATION (audio.c)
 // ============================================================================
 
 VOID_API VoidSound* void_audio_load_sound(const char *filepath);
-VOID_API void       void_audio_play_sound(const VoidSound *sound);
+VOID_API int32      void_audio_play_sound(const VoidSound *sound);
+VOID_API void       void_audio_stop_channel(int32 channel);
+VOID_API void       void_audio_set_channel_position(int32 channel, int16 angle, uint8 distance);
 VOID_API void       void_audio_destroy_sound(const VoidSound *sound);
 
 VOID_API VoidMusic* void_audio_load_music(const char *filepath);

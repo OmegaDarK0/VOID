@@ -15,9 +15,29 @@ VoidSound* void_audio_load_sound(const char *filepath) {
     return sound;
 }
 
-void void_audio_play_sound(const VoidSound *sound) {
-    if (sound && sound->handle) {
-        Mix_PlayChannel(-1, sound->handle, 0); 
+int32 void_audio_play_sound(const VoidSound *sound) {
+    if (!sound || !sound->handle) return -1;
+    const int channel = Mix_PlayChannel(-1, sound->handle, 0);
+    if (channel >= 0) {
+        Mix_SetPosition(channel, 0, 0);
+    }
+    return channel;
+}
+
+void void_audio_stop_channel(const int32 channel) {
+    if (channel >= 0) {
+        Mix_HaltChannel(channel);
+    }
+}
+
+void void_audio_set_channel_position(const int32 channel, int16 angle, const uint8 distance) {
+    if (channel < 0) return;
+    angle %= 360;
+    if (angle < 0) {
+        angle += 360;
+    }
+    if (!Mix_SetPosition(channel, angle, distance)) {
+        VOID_LOG_WARN("Mix_SetPosition failed on channel %d: %s", channel, Mix_GetError());
     }
 }
 

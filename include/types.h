@@ -10,7 +10,7 @@
 #define MiB (1024ULL * KiB)
 #define GiB (1024ULL * MiB)
 
-// SI Standards (Base 10)
+// SI Standards
 #define KB (1000ULL)
 #define MB (1000ULL * KB)
 #define GB (1000ULL * MB)
