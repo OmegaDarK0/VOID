@@ -100,7 +100,7 @@ static void test_thread_fibers(void) {
 }
 
 // ============================================================================
-// TEST 5: RENDERING, AUDIO, DELTA TIME AND INPUT
+// TEST 5: RENDERING, AUDIO, DELTA TIME, INPUT (KEYBOARD, MOUSE & GAMEPAD)
 // ============================================================================
 static void test_render_loop(void) {
     VOID_LOG_INFO("[RENDER TEST] Creating window (allocated in ROOT_MASTER)...");
@@ -118,7 +118,6 @@ static void test_render_loop(void) {
         return;
     }
     void_render_set_logical_size(window, WINDOW_WIDTH, WINDOW_HEIGHT);
-
     VOID_LOG_INFO("[RENDER TEST] Loading textures and FBO...");
     const VoidTexture *sparkle = void_texture_load(window, "assets/gemini_sparkle.png");
     VoidTexture *fbo = void_texture_create_target(window, 400, 400);
@@ -129,6 +128,7 @@ static void test_render_loop(void) {
         VOID_LOG_WARN("[RENDER TEST] 'gemini_sparkle.png' not found. Texture test will run without it.");
     }
     void_memory_set_default_arena(s_frame_arena);
+    void_input_set_gamepad_deadzone(0.15f);
     float player_x = WINDOW_WIDTH / 2.0f;
     float player_y = WINDOW_HEIGHT / 2.0f;
     float box_x = 100.0f;
@@ -136,28 +136,48 @@ static void test_render_loop(void) {
     float box_vel_x = 400.0f;
     float box_vel_y = 350.0f;
     double angle = 0.0;
-    VOID_LOG_INFO("[RENDER TEST] Starting main loop (Real-time memory monitor: 1000ms).");
+    VOID_LOG_INFO("[RENDER TEST] Starting main loop (Testing Mouse + Gamepad).");
     while (void_window_is_running(window)) {
         const float box_size = 32.0f;
-        const float player_speed = 600.0f;
+        float player_speed = 600.0f;
         const float player_size = 64.0f;
         const float dt = void_time_get_delta();
         angle += 90.0 * dt;
-        // 2. OS EVENTS
+        // 1. OS EVENTS
         void_window_poll_events(window);
         if (void_window_should_close(window) || void_input_is_key_pressed(VOID_KEY_ESCAPE)) {
             void_window_close(window);
         }
-        // 3. GAME LOGIC
+        // 2. GAMEPAD INPUTS (Player 1 / Index 0)
+        if (void_input_is_gamepad_connected(0)) {
+            if (void_input_is_gamepad_pressed(0, VOID_GAMEPAD_BUTTON_SOUTH)) {
+                player_speed *= 1.5f;
+            }
+            // Sticks analogiques avec zone morte appliquée
+            const float stick_x = void_input_get_gamepad_axis(0, VOID_GAMEPAD_AXIS_LEFTX);
+            const float stick_y = void_input_get_gamepad_axis(0, VOID_GAMEPAD_AXIS_LEFTY);
+            player_x += stick_x * player_speed * dt;
+            player_y += stick_y * player_speed * dt;
+        }
+        // 3. KEYBOARD INPUTS
         if (void_input_is_key_pressed(VOID_KEY_W)) player_y -= player_speed * dt;
         if (void_input_is_key_pressed(VOID_KEY_S)) player_y += player_speed * dt;
         if (void_input_is_key_pressed(VOID_KEY_A)) player_x -= player_speed * dt;
         if (void_input_is_key_pressed(VOID_KEY_D)) player_x += player_speed * dt;
+        // 4. MOUSE INPUTS
+        float mouse_x = 0.0f, mouse_y = 0.0f;
+        void_input_get_mouse_pos(window, &mouse_x, &mouse_y);
+        const bool mouse_left_held  = void_input_is_mouse_pressed(VOID_MOUSE_LEFT);
+        const bool mouse_right_held = void_input_is_mouse_pressed(VOID_MOUSE_RIGHT);
+        if (player_x < 0.0f) player_x = 0.0f;
+        if (player_x + player_size > WINDOW_WIDTH) player_x = WINDOW_WIDTH - player_size;
+        if (player_y < 0.0f) player_y = 0.0f;
+        if (player_y + player_size > WINDOW_HEIGHT) player_y = WINDOW_HEIGHT - player_size;
         box_x += box_vel_x * dt;
         box_y += box_vel_y * dt;
         if (box_x <= 0 || box_x + box_size >= WINDOW_WIDTH)  box_vel_x *= -1.0f;
         if (box_y <= 0 || box_y + box_size >= WINDOW_HEIGHT) box_vel_y *= -1.0f;
-        // 4. RENDERING PASS 1: FBO
+        // 5. RENDERING PASS 1: FBO
         if (fbo) {
             void_window_set_render_target(window, fbo);
             void_render_clear(window, 10, 10, 15, 255);
@@ -173,10 +193,14 @@ static void test_render_loop(void) {
             }
             void_window_set_render_target(window, NULL);
         }
-        // 5. RENDERING PASS 2: SCREEN
+        // 6. RENDERING PASS 2: SCREEN
         void_render_clear(window, 20, 20, 25, 255);
         void_render_rect(window, box_x, box_y, box_size, box_size, 255, 50, 50, 255, true);
-        void_render_rect(window, player_x, player_y, player_size, player_size, 50, 255, 100, 255, true);
+        if (mouse_right_held) {
+            void_render_rect(window, player_x, player_y, player_size, player_size, 255, 150, 50, 255, true);
+        } else {
+            void_render_rect(window, player_x, player_y, player_size, player_size, 50, 255, 100, 255, true);
+        }
         void_gfx_draw_circle(window, WINDOW_WIDTH / 2.0f, WINDOW_HEIGHT / 2.0f, 150.0f, 50, 50, 50, 255, true);
         void_gfx_draw_circle(window, WINDOW_WIDTH / 2.0f, WINDOW_HEIGHT / 2.0f, 150.0f, 255, 255, 255, 255, false);
         const int star_points = 10;
@@ -206,8 +230,19 @@ static void test_render_loop(void) {
             void_texture_draw(window, fbo, 0, 0, 400, 400, WINDOW_WIDTH - 420, 20, 400, 400);
             void_render_rect(window, WINDOW_WIDTH - 420, 20, 400, 400, 255, 255, 255, 255, false);
         }
+        if (mouse_left_held) {
+            void_gfx_draw_thick_line(
+                window,
+                player_x + player_size / 2.0f,
+                player_y + player_size / 2.0f,
+                mouse_x, mouse_y,
+                6.0f, 0, 255, 255, 255
+            );
+        }
+        void_gfx_draw_ring(window, mouse_x, mouse_y, 8.0f, 14.0f, 0, 255, 255, 255, true);
+        void_gfx_draw_circle(window, mouse_x, mouse_y, 3.0f, 255, 50, 50, 255, true);
         void_render_present(window);
-        // 6. TELEMETRY & END OF FRAME CLEANUP
+        // 7. TELEMETRY & FRAME CLEANUP
         void_memory_monitor(1000);
         void_log_flush();
         void_arena_reset(s_frame_arena);

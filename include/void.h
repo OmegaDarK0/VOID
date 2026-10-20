@@ -114,10 +114,6 @@ VOID_API void void_render_set_driver(const char *driver_name);
 // Call before loading/creating a texture to set its sampling quality
 VOID_API void void_render_set_filter(VoidFilterMode mode);
 
-// Reads keyboard state instantly without callbacks/event listeners
-VOID_API bool        void_input_is_key_pressed(VoidKeyCode key);
-//VOID_API bool      void_input_is_mouse_button_pressed(uint8 button);
-
 // ============================================================================
 // BASIC 2D RENDERING (Provided by the SDL_Renderer back-end)
 // ============================================================================
@@ -187,6 +183,23 @@ VOID_API bool void_gfx_draw_capsule(const VoidWindow *window, float x, float y, 
 
 // --- The Ultimate Feature: Textured Geometry ---
 VOID_API bool void_gfx_draw_textured_quad(const VoidWindow *window, const VoidTexture *texture, const VoidPoint *pts, const VoidPoint *uvs, uint8 r, uint8 g, uint8 b, uint8 a);
+
+// ============================================================================
+// HUMAN INTERFACE DEVICES / INPUT (input.c)
+// ============================================================================
+
+// --- Keyboard ---
+VOID_API bool  void_input_is_key_pressed(VoidKeyCode key);
+
+// --- Mouse (Logical resolution aware) ---
+VOID_API void  void_input_get_mouse_pos(const VoidWindow *window, float *x, float *y);
+VOID_API bool  void_input_is_mouse_pressed(VoidMouseButton button);
+
+// --- Gamepads (Up to 4 controllers, automatic hot-plugging & deadzone) ---
+VOID_API bool  void_input_is_gamepad_connected(int gamepad_index);
+VOID_API float void_input_get_gamepad_axis(int gamepad_index, VoidGamepadAxis axis);
+VOID_API bool  void_input_is_gamepad_pressed(int gamepad_index, VoidGamepadButton button);
+VOID_API void  void_input_set_gamepad_deadzone(float deadzone);
 
 // ============================================================================
 // LOW-LEVEL THREADING (thread.c)
