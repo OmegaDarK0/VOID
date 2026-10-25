@@ -14,6 +14,9 @@ static VoidArena *s_frame_arena = NULL;
 // TEST 1: LOGGING
 // ============================================================================
 static void test_logging(void) {
+    const uint64 seed1 = void_get_random_seed();
+    const uint64 seed2 = void_get_random_seed();
+    VOID_LOG_OK("[ENTROPY TEST] Hardware seeds: 0x%016" PRIx64 " | 0x%016" PRIx64, seed1, seed2);
     VOID_LOG_INFO("Starting VOID FRAMEWORK test suite...");
     VOID_LOG_OK("Log test OK.");
     VOID_LOG_WARN("This is a test warning.");
@@ -178,7 +181,6 @@ static void test_render_loop(void) {
             if (void_input_is_gamepad_pressed(0, VOID_GAMEPAD_BUTTON_SOUTH)) {
                 player_speed *= 1.5f;
             }
-            // Sticks analogiques avec zone morte appliquée
             const float stick_x = void_input_get_gamepad_axis(0, VOID_GAMEPAD_AXIS_LEFTX);
             const float stick_y = void_input_get_gamepad_axis(0, VOID_GAMEPAD_AXIS_LEFTY);
             player_x += stick_x * player_speed * dt;
@@ -334,7 +336,6 @@ int main(const int argc, char *argv[]) {
     if (run_all || run_file)   test_file_io();
     if (run_all || run_thread) test_thread_fibers();
     if (run_all || run_render) test_render_loop();
-    void_memory_exit();
     void_exit();
     return 0;
 }

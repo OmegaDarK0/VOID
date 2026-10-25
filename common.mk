@@ -142,11 +142,11 @@ DEPFLAGS = -MT $@ -MMD -MP -MF $(DEP_DIR)/$*.d
 ifeq ($(TARGET_OS),windows)
     CFLAGS  += -D__USE_MINGW_ANSI_STDIO=1
     LDFLAGS += -Wl,--dynamicbase -Wl,--nxcompat
-    LDLIBS  += -lmingw32 -mwindows
+    LDLIBS  += -lmingw32 -mwindows -lbcrypt
     OSFLAG  :=
 else ifeq ($(TARGET_OS),linux)
     CFLAGS  += -fPIC -D_GNU_SOURCE
-    LDFLAGS += -Wl,--enable-new-dtags -Wl,-rpath='$$ORIGIN:$$ORIGIN/../lib'
+    LDFLAGS += -Wl,--disable-new-dtags -Wl,-rpath='$$ORIGIN:$$ORIGIN/../lib'
     LDLIBS  += -lm -ldl -pthread
     OSFLAG  := -pie
 endif
