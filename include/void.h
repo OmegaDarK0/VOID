@@ -70,7 +70,7 @@ VOID_API void       void_memory_print(void);
 VOID_API void       void_memory_monitor(uint32 interval_ms);
 
 // ============================================================================
-// WINDOW & INPUT (window.c / input.c)
+// WINDOW (window.c)
 // ============================================================================
 
 // --- 1. Creation & Lifecycle ---
@@ -191,30 +191,37 @@ VOID_API bool void_gfx_draw_textured_quad(const VoidWindow *window, const VoidTe
 
 // --- Keyboard ---
 VOID_API bool  void_input_is_key_pressed(VoidKeyCode key);
+VOID_API bool  void_input_is_key_just_pressed(VoidKeyCode key);
+VOID_API bool  void_input_is_key_just_released(VoidKeyCode key);
 
 // --- Mouse (Logical resolution aware) ---
 VOID_API void  void_input_get_mouse_pos(const VoidWindow *window, float *x, float *y);
+VOID_API void  void_input_get_mouse_wheel(float *x, float *y);
 VOID_API bool  void_input_is_mouse_pressed(VoidMouseButton button);
+VOID_API bool  void_input_is_mouse_just_pressed(VoidMouseButton button);
+VOID_API bool  void_input_is_mouse_just_released(VoidMouseButton button);
 
-// --- Gamepads (Up to 4 controllers, automatic hot-plugging & deadzone) ---
+// --- Gamepads (Up to 4 controllers, hot-plugging, deadzone & rumble) ---
 VOID_API bool  void_input_is_gamepad_connected(int gamepad_index);
 VOID_API float void_input_get_gamepad_axis(int gamepad_index, VoidGamepadAxis axis);
 VOID_API bool  void_input_is_gamepad_pressed(int gamepad_index, VoidGamepadButton button);
+VOID_API bool  void_input_is_gamepad_just_pressed(int gamepad_index, VoidGamepadButton button);
+VOID_API bool  void_input_is_gamepad_just_released(int gamepad_index, VoidGamepadButton button);
 VOID_API void  void_input_set_gamepad_deadzone(float deadzone);
+VOID_API bool  void_input_rumble_gamepad(int gamepad_index, float low_freq, float high_freq, uint32 duration_ms);
 
 // ============================================================================
 // LOW-LEVEL THREADING (thread.c)
 // ============================================================================
-// Provides just enough primitives for job.cpp (C++) to build its Fibers
 
 VOID_API void   void_thread_create(VoidThreadFunc func, void *data);
 VOID_API void   void_thread_sleep(uint32 ms);
 VOID_API uint32 void_thread_get_id(void);
+VOID_API void   void_processor_pause(void);
 
-// Atomic primitives to avoid blocking mutexes
 VOID_API uint32 void_atomic_increment(volatile uint32 *value);
 VOID_API uint32 void_atomic_decrement(volatile uint32 *value);
-VOID_API bool   void_atomic_compare_exchange(volatile uint32 *value, uint32 expected, uint32 desired);
+VOID_API bool   void_atomic_compare(volatile uint32 *value, uint32 expected, uint32 desired);
 
 // ============================================================================
 // LOGGING SYSTEM (log.c)
@@ -229,7 +236,11 @@ VOID_API void void_log_exit(void);
 // FILE I/O (file.c)
 // ============================================================================
 
-VOID_API void* void_file_read(const char *filepath, uint64 *out_size);
+VOID_API void*  void_file_read(const char *filepath, uint64 *out_size);
+VOID_API bool   void_file_write(const char *filepath, const void *data, uint64 size);
+VOID_API bool   void_file_exists(const char *filepath);
+VOID_API uint64 void_file_get_mtime(const char *filepath);
+VOID_API bool   void_file_copy(const char *src_path, const char *dst_path);
 
 // ============================================================================
 // AUDIO MIXER & SPATIALIZATION (audio.c)
@@ -238,7 +249,9 @@ VOID_API void* void_file_read(const char *filepath, uint64 *out_size);
 VOID_API VoidSound* void_audio_load_sound(const char *filepath);
 VOID_API int32      void_audio_play_sound(const VoidSound *sound);
 VOID_API void       void_audio_stop_channel(int32 channel);
+VOID_API void       void_audio_set_channel_volume(int32 channel, float volume);
 VOID_API void       void_audio_set_channel_position(int32 channel, int16 angle, uint8 distance);
+VOID_API bool       void_audio_is_channel_playing(int32 channel);
 VOID_API void       void_audio_destroy_sound(const VoidSound *sound);
 
 VOID_API VoidMusic* void_audio_load_music(const char *filepath);

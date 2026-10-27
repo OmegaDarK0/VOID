@@ -3,12 +3,10 @@
 
 #define MAX_DELTA_TIME 0.05f
 
-static uint64 s_last_tick = 0, s_last_time = 0;
+static uint64 s_last_time = 0;
 
 uint64 void_time_get_ticks(void) {
-    const uint64 current_tick = SDL_GetTicks64();
-    if (current_tick) s_last_tick = current_tick;
-    return s_last_tick;
+    return SDL_GetTicks64();
 }
 
 float void_time_get_delta(void) {

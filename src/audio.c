@@ -82,3 +82,15 @@ void void_audio_set_master_volume(float volume) {
     Mix_Volume(-1, (int)(volume * MIX_MAX_VOLUME));
     Mix_VolumeMusic((int)(volume * MIX_MAX_VOLUME));
 }
+
+void void_audio_set_channel_volume(const int32 channel, float volume) {
+    if (channel < 0) return;
+    if (volume < 0.0f) volume = 0.0f;
+    if (volume > 1.0f) volume = 1.0f;
+    Mix_Volume(channel, (int)(volume * MIX_MAX_VOLUME));
+}
+
+bool void_audio_is_channel_playing(const int32 channel) {
+    if (channel < 0) return false;
+    return Mix_Playing(channel) != 0;
+}

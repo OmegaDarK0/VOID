@@ -33,7 +33,6 @@ VoidWindow *void_window_create(const char *title, const int x, const int y, cons
     if (r_flags & VOID_RENDER_ACCELERATED)   sdl_r_flags |= SDL_RENDERER_ACCELERATED;
     if (r_flags & VOID_RENDER_PRESENTVSYNC)  sdl_r_flags |= SDL_RENDERER_PRESENTVSYNC;
     if (r_flags & VOID_RENDER_TARGETTEXTURE) sdl_r_flags |= SDL_RENDERER_TARGETTEXTURE;
-
     window->render = SDL_CreateRenderer(window->handle, -1, sdl_r_flags);
     if (window->render == NULL) {
         SDL_DestroyWindow(window->handle);
@@ -41,6 +40,7 @@ VoidWindow *void_window_create(const char *title, const int x, const int y, cons
         VOID_LOG_ERROR("SDL_CreateRenderer failed: %s", SDL_GetError());
         return NULL;
     }
+    SDL_SetRenderDrawBlendMode(window->render, SDL_BLENDMODE_BLEND);
     window->is_running = true;
     window->should_close = false;
     VOID_LOG_OK("Window and Renderer created! (addr: %p)", window);
@@ -59,10 +59,13 @@ bool void_window_is_running(const VoidWindow *window) { return window->is_runnin
 bool void_window_should_close(const VoidWindow *window) { return window->should_close; }
 
 void void_window_poll_events(VoidWindow *window) {
+    void_input_begin_frame();
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_QUIT) {
-            window->should_close = true;
+            if (window) window->should_close = true;
+        } else if (event.type == SDL_MOUSEWHEEL) {
+            void_input_on_mouse_wheel(event.wheel.preciseX, event.wheel.preciseY);
         }
     }
 }

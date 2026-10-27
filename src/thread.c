@@ -41,9 +41,13 @@ uint32 void_atomic_decrement(volatile uint32 *value) {
     return __sync_sub_and_fetch(value, 1);
 }
 
-bool void_atomic_compare_exchange(volatile uint32 *value, const uint32 expected, const uint32 desired) {
+bool void_atomic_compare(volatile uint32 *value, const uint32 expected, const uint32 desired) {
     if (__sync_bool_compare_and_swap(value, expected, desired)) {
         return true;
     }
     return false;
+}
+
+void void_processor_pause(void) {
+    SDL_CPUPauseInstruction();
 }

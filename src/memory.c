@@ -20,7 +20,9 @@ static uint32 s_arena_count = 0;
 static uint64 s_last_monitor_tick = 0;
 
 static void arena_lock(VoidArena *arena) {
-    while (!void_atomic_compare_exchange(&arena->lock, 0, 1));
+    while (!void_atomic_compare(&arena->lock, 0, 1)) {
+        void_processor_pause();
+    }
 }
 
 static void arena_unlock(VoidArena *arena) {

@@ -33,4 +33,8 @@ struct VoidMusic {
     Mix_Music *handle;
 };
 
+// Internal input hooks called by void_window_poll_events (window.c)
+void void_input_begin_frame(void);
+void void_input_on_mouse_wheel(float x, float y);
+
 #endif //VOID_INTERNAL_H

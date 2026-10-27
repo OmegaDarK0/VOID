@@ -126,9 +126,10 @@ bool void_texture_draw(const VoidWindow *window, const VoidTexture *texture,
     const int src_x, const int src_y, const int src_w, const int src_h,
     const float dst_x, const float dst_y, const float dst_w, const float dst_h) {
     if (!window || !window->render || !texture || !texture->handle) return false;
-    const SDL_Rect src = {src_x, src_y, src_w, src_h};
-    const SDL_FRect dst = {dst_x, dst_y, dst_w, dst_h};
-    if (SDL_RenderCopyF(window->render, texture->handle, &src, &dst) < 0) {
+    const SDL_Rect src = {.x = src_x, .y = src_y, .w = src_w, .h = src_h};
+    const SDL_Rect *src_ptr = (src_w > 0 && src_h > 0) ? &src : NULL;
+    const SDL_FRect dst = {.x = dst_x, .y = dst_y, .w = dst_w, .h = dst_h};
+    if (SDL_RenderCopyF(window->render, texture->handle, src_ptr, &dst) < 0) {
         VOID_LOG_ERROR("SDL_RenderCopyF failed: %s", SDL_GetError());
         return false;
     }
@@ -140,14 +141,15 @@ bool void_texture_draw_ex(const VoidWindow *window, const VoidTexture *texture,
                           const float dst_x, const float dst_y, const float dst_w, const float dst_h,
                           const double angle, const VoidPoint *center, const VoidFlipMode flip) {
     if (!window || !window->render || !texture || !texture->handle) return false;
-    const SDL_Rect src = {src_x, src_y, src_w, src_h};
-    const SDL_FRect dst = {dst_x, dst_y, dst_w, dst_h};
+    const SDL_Rect src = {.x = src_x, .y = src_y, .w = src_w, .h = src_h};
+    const SDL_Rect *src_ptr = (src_w > 0 && src_h > 0) ? &src : NULL;
+    const SDL_FRect dst = {.x = dst_x, .y = dst_y, .w = dst_w, .h = dst_h};
     SDL_FPoint sdl_center;
     if (center) {
         sdl_center.x = center->x;
         sdl_center.y = center->y;
     }
-    if (SDL_RenderCopyExF(window->render, texture->handle, &src, &dst, angle, center ? &sdl_center : NULL, (SDL_RendererFlip)flip) < 0) {
+    if (SDL_RenderCopyExF(window->render, texture->handle, src_ptr, &dst, angle, center ? &sdl_center : NULL, (SDL_RendererFlip)flip) < 0) {
         VOID_LOG_ERROR("SDL_RenderCopyExF failed: %s", SDL_GetError());
         return false;
     }
