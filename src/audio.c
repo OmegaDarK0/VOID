@@ -3,6 +3,7 @@
 #include "void.h"
 
 VoidSound* void_audio_load_sound(const char *filepath) {
+    if (!filepath) return NULL;
     const VoidScope scope = void_arena_push(NULL);
     VoidSound *sound = void_arena_alloc(NULL, sizeof(VoidSound), alignof(VoidSound));
     if (!sound) return NULL;
@@ -19,6 +20,7 @@ int32 void_audio_play_sound(const VoidSound *sound) {
     if (!sound || !sound->handle) return -1;
     const int channel = Mix_PlayChannel(-1, sound->handle, 0);
     if (channel >= 0) {
+        Mix_Volume(channel, MIX_MAX_VOLUME);
         Mix_SetPosition(channel, 0, 0);
     }
     return channel;
@@ -41,13 +43,15 @@ void void_audio_set_channel_position(const int32 channel, int16 angle, const uin
     }
 }
 
-void void_audio_destroy_sound(const VoidSound *sound) {
+void void_audio_destroy_sound(VoidSound *sound) {
     if (sound && sound->handle) {
         Mix_FreeChunk(sound->handle);
+        sound->handle = NULL;
     }
 }
 
 VoidMusic* void_audio_load_music(const char *filepath) {
+    if (!filepath) return NULL;
     const VoidScope scope = void_arena_push(NULL);
     VoidMusic *music = void_arena_alloc(NULL, sizeof(VoidMusic), alignof(VoidMusic));
     if (!music) return NULL;
@@ -70,16 +74,17 @@ void void_audio_stop_music(void) {
     Mix_HaltMusic();
 }
 
-void void_audio_destroy_music(const VoidMusic *music) {
+void void_audio_destroy_music(VoidMusic *music) {
     if (music && music->handle) {
         Mix_FreeMusic(music->handle);
+        music->handle = NULL;
     }
 }
 
 void void_audio_set_master_volume(float volume) {
     if (volume < 0.0f) volume = 0.0f;
     if (volume > 1.0f) volume = 1.0f;
-    Mix_Volume(-1, (int)(volume * MIX_MAX_VOLUME));
+    Mix_MasterVolume((int)(volume * MIX_MAX_VOLUME));
     Mix_VolumeMusic((int)(volume * MIX_MAX_VOLUME));
 }
 

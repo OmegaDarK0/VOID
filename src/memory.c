@@ -1,4 +1,7 @@
 #ifdef _WIN32
+    #ifndef WIN32_LEAN_AND_MEAN
+        #define WIN32_LEAN_AND_MEAN
+    #endif
     #include <windows.h>
 #else
     #include <sys/mman.h>
@@ -17,6 +20,7 @@ static VoidArena s_root_arena;
 static VoidArena *s_default_arena = NULL;
 static VoidArena *s_registered_arenas[MAX_REGISTERED_ARENAS];
 static uint32 s_arena_count = 0;
+static volatile uint32 s_registry_lock = 0;
 static uint64 s_last_monitor_tick = 0;
 
 static void arena_lock(VoidArena *arena) {
@@ -26,7 +30,17 @@ static void arena_lock(VoidArena *arena) {
 }
 
 static void arena_unlock(VoidArena *arena) {
-    arena->lock = 0;
+    void_atomic_store(&arena->lock, 0);
+}
+
+static void registry_lock(void) {
+    while (!void_atomic_compare(&s_registry_lock, 0, 1)) {
+        void_processor_pause();
+    }
+}
+
+static void registry_unlock(void) {
+    void_atomic_store(&s_registry_lock, 0);
 }
 
 static void format_memory_size(const uint64 bytes, char *out_buf, const size_t buf_size) {
@@ -62,8 +76,10 @@ VoidArena *void_memory_init(const uint64 total_capacity) {
     s_root_arena.offset = 0;
     s_root_arena.lock = 0;
     s_default_arena = &s_root_arena;
+    registry_lock();
     s_arena_count = 0;
     s_registered_arenas[s_arena_count++] = &s_root_arena;
+    registry_unlock();
     char size_str[32];
     format_memory_size(total_capacity, size_str, sizeof(size_str));
     VOID_LOG_OK("Virtual memory initialized! [%s]", size_str);
@@ -79,7 +95,9 @@ void void_memory_exit(void) {
 #endif
         s_root_arena.base = NULL;
         s_default_arena   = NULL;
-        s_arena_count     = 0;
+        registry_lock();
+        s_arena_count = 0;
+        registry_unlock();
         VOID_LOG_INFO("Virtual memory freed.");
     }
 }
@@ -103,6 +121,7 @@ VoidArena *void_memory_get_root_arena(void) {
 void *void_arena_alloc(VoidArena *arena, const uint64 size, const uint32 alignment) {
     if (size == 0) return NULL;
     VoidArena *target = arena ? arena : s_default_arena;
+    if (!target || !target->base) return NULL;
     const uint32 align = alignment > 0 ? alignment : 1;
     arena_lock(target);
     const uintptr_t address = (uintptr_t)target->base + target->offset;
@@ -120,6 +139,7 @@ void *void_arena_alloc(VoidArena *arena, const uint64 size, const uint32 alignme
 
 VoidArena *void_arena_suballoc(VoidArena *parent, const char *name, const uint64 capacity) {
     VoidArena *target_parent = parent ? parent : &s_root_arena;
+    if (!target_parent || !target_parent->base) return NULL;
     const VoidScope scope = void_arena_push(target_parent);
     VoidArena *sub = void_arena_alloc(target_parent, sizeof(VoidArena), alignof(VoidArena));
     uint8 *block = void_arena_alloc(target_parent, capacity, 16);
@@ -133,21 +153,23 @@ VoidArena *void_arena_suballoc(VoidArena *parent, const char *name, const uint64
     sub->capacity = capacity;
     sub->offset = 0;
     sub->lock = 0;
+    registry_lock();
     if (s_arena_count < MAX_REGISTERED_ARENAS) {
         s_registered_arenas[s_arena_count++] = sub;
     }
+    registry_unlock();
     return sub;
 }
 
 void *void_arena_realloc(VoidArena *arena, void *ptr, const uint64 old_size, const uint64 new_size, const uint32 alignment) {
     VoidArena *target = arena ? arena : s_default_arena;
+    if (!target || !target->base) return NULL;
     if (!ptr) return void_arena_alloc(target, new_size, alignment);
     if (new_size == 0) return NULL;
     arena_lock(target);
     const uintptr_t addr = (uintptr_t)ptr;
     const uintptr_t base = (uintptr_t)target->base;
     const uintptr_t top  = base + target->offset;
-    // Fast-path: In-place resize if the block is at the very top of the arena
     if (addr >= base && addr + old_size == top) {
         const uint64 base_offset = (uint64)(addr - base);
         if (base_offset + new_size <= target->capacity) {
@@ -157,10 +179,9 @@ void *void_arena_realloc(VoidArena *arena, void *ptr, const uint64 old_size, con
         }
     }
     arena_unlock(target);
-    // Fallback: Allocate a new block and copy existing payload
     void *new_ptr = void_arena_alloc(target, new_size, alignment);
     if (!new_ptr) return NULL;
-    const uint64 copy_size = (old_size < new_size) ? old_size : new_size;
+    const uint64 copy_size = old_size < new_size ? old_size : new_size;
     if (copy_size > 0) {
         memcpy(new_ptr, ptr, copy_size);
     }
@@ -183,10 +204,10 @@ void *void_arena_memmove(VoidArena *dst_arena, VoidArena *src_arena, void *src_p
     if (!src_ptr || size == 0) return NULL;
     VoidArena *target_dst = dst_arena ? dst_arena : s_default_arena;
     VoidArena *target_src = src_arena ? src_arena : s_default_arena;
+    if (!target_dst || !target_src) return NULL;
     if (target_dst == target_src) return src_ptr;
     void *dst_ptr = void_arena_memdup(target_dst, src_ptr, size, alignment);
     if (!dst_ptr) return NULL;
-    // Reclaim memory immediately if src_ptr was at the top of target_src
     arena_lock(target_src);
     const uintptr_t src_addr = (uintptr_t)src_ptr;
     const uintptr_t base     = (uintptr_t)target_src->base;
@@ -245,6 +266,7 @@ char *void_arena_sprintf(VoidArena *dst_arena, const char *fmt, ...) {
 
 void void_arena_reset(VoidArena *arena) {
     VoidArena *target = arena ? arena : s_default_arena;
+    if (!target) return;
     arena_lock(target);
     target->offset = 0;
     arena_unlock(target);
@@ -252,6 +274,7 @@ void void_arena_reset(VoidArena *arena) {
 
 VoidScope void_arena_push(const VoidArena *arena) {
     VoidArena *target = (VoidArena*)(arena ? arena : s_default_arena);
+    if (!target) return (VoidScope){ .offset_backup = 0 };
     arena_lock(target);
     const VoidScope scope = { .offset_backup = target->offset };
     arena_unlock(target);
@@ -260,6 +283,7 @@ VoidScope void_arena_push(const VoidArena *arena) {
 
 void void_arena_pop(VoidArena *arena, const VoidScope scope) {
     VoidArena *target = arena ? arena : s_default_arena;
+    if (!target) return;
     arena_lock(target);
     if (scope.offset_backup <= target->offset) {
         target->offset = scope.offset_backup;
@@ -273,6 +297,7 @@ void void_arena_pop(VoidArena *arena, const VoidScope scope) {
 
 void void_arena_print(const VoidArena *arena) {
     VoidArena *target = (VoidArena*)(arena ? arena : s_default_arena);
+    if (!target) return;
     arena_lock(target);
     const uint64 offset = target->offset;
     const uint64 capacity = target->capacity;
@@ -292,8 +317,15 @@ void void_arena_print(const VoidArena *arena) {
 }
 
 void void_memory_print(void) {
-    for (uint32 i = 0; i < s_arena_count; i++) {
-        void_arena_print(s_registered_arenas[i]);
+    VoidArena *snapshot[MAX_REGISTERED_ARENAS];
+    registry_lock();
+    const uint32 count = s_arena_count;
+    for (uint32 i = 0; i < count; i++) {
+        snapshot[i] = s_registered_arenas[i];
+    }
+    registry_unlock();
+    for (uint32 i = 0; i < count; i++) {
+        void_arena_print(snapshot[i]);
     }
 }
 

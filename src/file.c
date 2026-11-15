@@ -1,9 +1,16 @@
 #ifdef _WIN32
+    #ifndef WIN32_LEAN_AND_MEAN
+        #define WIN32_LEAN_AND_MEAN
+    #endif
     #include <windows.h>
 #else
+    #include <errno.h>
     #include <fcntl.h>
     #include <unistd.h>
     #include <sys/stat.h>
+    #ifndef O_CLOEXEC
+        #define O_CLOEXEC 0
+    #endif
 #endif
 
 #include "void.h"
@@ -51,7 +58,7 @@ void* void_file_read(const char *filepath, uint64 *out_size) {
     }
     CloseHandle(file);
 #else
-    const int fd = open(filepath, O_RDONLY);
+    const int fd = open(filepath, O_RDONLY | O_CLOEXEC);
     if (fd < 0) {
         VOID_LOG_ERROR("Failed to open file: %s", filepath);
         if (out_size) *out_size = 0;
@@ -77,8 +84,16 @@ void* void_file_read(const char *filepath, uint64 *out_size) {
     char *ptr = buffer;
     while (total_read < size) {
         const ssize_t bytes_read = read(fd, ptr, size - total_read);
-        if (bytes_read <= 0) {
+        if (bytes_read < 0) {
+            if (errno == EINTR) continue;
             VOID_LOG_ERROR("Failed to read entire file: %s", filepath);
+            void_arena_pop(NULL, scope);
+            close(fd);
+            if (out_size) *out_size = 0;
+            return NULL;
+        }
+        if (bytes_read == 0) {
+            VOID_LOG_ERROR("Unexpected EOF while reading file: %s", filepath);
             void_arena_pop(NULL, scope);
             close(fd);
             if (out_size) *out_size = 0;
@@ -119,7 +134,7 @@ bool void_file_write(const char *filepath, const void *data, const uint64 size) 
     }
     CloseHandle(file);
 #else
-    const int fd = open(filepath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    const int fd = open(filepath, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
     if (fd < 0) {
         VOID_LOG_ERROR("Failed to open file for writing: %s", filepath);
         return false;
@@ -128,8 +143,14 @@ bool void_file_write(const char *filepath, const void *data, const uint64 size) 
     const char *ptr = (const char*)data;
     while (total_written < size) {
         const ssize_t bytes_written = write(fd, ptr, size - total_written);
-        if (bytes_written <= 0) {
+        if (bytes_written < 0) {
+            if (errno == EINTR) continue;
             VOID_LOG_ERROR("Failed to write file: %s", filepath);
+            close(fd);
+            return false;
+        }
+        if (bytes_written == 0) {
+            VOID_LOG_ERROR("Zero bytes written to file: %s", filepath);
             close(fd);
             return false;
         }
@@ -168,7 +189,11 @@ uint64 void_file_get_mtime(const char *filepath) {
     if (stat(filepath, &statbuf) != 0) {
         return 0;
     }
-    return (uint64)statbuf.st_mtime;
+    #if defined(__linux__)
+    return (uint64)statbuf.st_mtim.tv_sec * 1000000000ULL + (uint64)statbuf.st_mtim.tv_nsec;
+    #else
+    return (uint64)statbuf.st_mtime * 1000000000ULL;
+    #endif
 #endif
 }
 
@@ -177,15 +202,47 @@ bool void_file_copy(const char *src_path, const char *dst_path) {
 #ifdef _WIN32
     return CopyFileA(src_path, dst_path, FALSE) != 0;
 #else
-    const VoidScope scope = void_arena_push(NULL);
-    uint64 size = 0;
-    void *data = void_file_read(src_path, &size);
-    if (!data) {
-        void_arena_pop(NULL, scope);
+    const int src_fd = open(src_path, O_RDONLY | O_CLOEXEC);
+    if (src_fd < 0) {
+        VOID_LOG_ERROR("Failed to open source file for copy: %s", src_path);
         return false;
     }
-    const bool ok = void_file_write(dst_path, data, size);
-    void_arena_pop(NULL, scope);
+    const int dst_fd = open(dst_path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+    if (dst_fd < 0) {
+        VOID_LOG_ERROR("Failed to open destination file for copy: %s", dst_path);
+        close(src_fd);
+        return false;
+    }
+    uint8 buffer[16 * KiB];
+    bool ok = true;
+    while (true) {
+        const ssize_t bytes_read = read(src_fd, buffer, sizeof(buffer));
+        if (bytes_read < 0) {
+            if (errno == EINTR) continue;
+            VOID_LOG_ERROR("Failed while reading source file during copy: %s", src_path);
+            ok = false;
+            break;
+        }
+        if (bytes_read == 0) break;
+        ssize_t total_written = 0;
+        while (total_written < bytes_read) {
+            const ssize_t bytes_written = write(dst_fd, buffer + total_written, (size_t)(bytes_read - total_written));
+            if (bytes_written < 0) {
+                if (errno == EINTR) continue;
+                VOID_LOG_ERROR("Failed while writing destination file during copy: %s", dst_path);
+                ok = false;
+                break;
+            }
+            if (bytes_written == 0) {
+                ok = false;
+                break;
+            }
+            total_written += bytes_written;
+        }
+        if (!ok) break;
+    }
+    close(dst_fd);
+    close(src_fd);
     return ok;
 #endif
 }

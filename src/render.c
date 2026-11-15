@@ -1,6 +1,24 @@
 #include "internal.h"
 #include "void.h"
 
+void void_render_get_output_size(const VoidWindow *window, int *width, int *height) {
+    if (window && window->render) {
+        SDL_GetRendererOutputSize(window->render, width, height);
+    } else {
+        if (width)  *width  = 0;
+        if (height) *height = 0;
+    }
+}
+
+void void_render_get_logical_size(const VoidWindow *window, int *width, int *height) {
+    if (window && window->render) {
+        SDL_RenderGetLogicalSize(window->render, width, height);
+    } else {
+        if (width)  *width  = 0;
+        if (height) *height = 0;
+    }
+}
+
 void void_render_set_logical_size(const VoidWindow *window, const int width, const int height) {
     if (!window || !window->render) return;
     SDL_RenderSetLogicalSize(window->render, width, height);

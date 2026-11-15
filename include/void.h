@@ -1,8 +1,26 @@
 #ifndef VOID_H
 #define VOID_H
 
-#include "api.h"
-#include "types.h"
+#include "voiddef.h"
+
+#if defined(_WIN32) || defined(__CYGWIN__)
+    #define VOID_EXPORT __declspec(dllexport)
+    #define VOID_IMPORT __declspec(dllimport)
+#elif defined(__GNUC__) && (__GNUC__ >= 4)
+    #define VOID_EXPORT __attribute__((visibility("default")))
+    #define VOID_IMPORT __attribute__((visibility("default")))
+#else
+    #define VOID_EXPORT
+    #define VOID_IMPORT
+#endif
+
+#if defined(VOID_STATIC)
+    #define VOID_API
+#elif defined(VOID_BUILD_DLL)
+    #define VOID_API VOID_EXPORT
+#else
+    #define VOID_API VOID_IMPORT
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -75,7 +93,7 @@ VOID_API void       void_memory_monitor(uint32 interval_ms);
 
 // --- 1. Creation & Lifecycle ---
 VOID_API VoidWindow *void_window_create(const char *title, int x, int y, uint32 w, uint32 h, VoidWindowFlags w_flags, VoidRenderFlags r_flags);
-VOID_API void        void_window_destroy(const VoidWindow *window);
+VOID_API void        void_window_destroy(VoidWindow *window);
 VOID_API void        void_window_close(VoidWindow *window);
 VOID_API bool        void_window_is_running(const VoidWindow *window);
 VOID_API bool        void_window_should_close(const VoidWindow *window);
@@ -104,9 +122,13 @@ VOID_API bool void_window_is_hidden(const VoidWindow *window);
 VOID_API bool void_window_is_maximized(const VoidWindow *window);
 VOID_API bool void_window_is_minimized(const VoidWindow *window);
 VOID_API bool void_window_is_grabbed(const VoidWindow *window);
+VOID_API bool void_window_is_focused(const VoidWindow *window);
+VOID_API bool void_window_was_resized(const VoidWindow *window);
 
 // --- 5. Render API ---
 VOID_API VoidRender *void_window_get_render(const VoidWindow *window);
+VOID_API void        void_render_get_output_size(const VoidWindow *window, int *width, int *height);
+VOID_API void        void_render_get_logical_size(const VoidWindow *window, int *width, int *height);
 VOID_API void        void_render_set_logical_size(const VoidWindow *window, int width, int height);
 
 // --- System Render Hints ---
@@ -136,7 +158,7 @@ VOID_API bool void_render_rects(const VoidWindow *window, const VoidRect *rects,
 
 // Texture management
 VOID_API VoidTexture *void_texture_load(const VoidWindow *window, const char *filename);
-VOID_API void         void_texture_destroy(const VoidTexture *texture);
+VOID_API void         void_texture_destroy(VoidTexture *texture);
 VOID_API bool         void_texture_draw(const VoidWindow *window, const VoidTexture *texture, int src_x, int src_y, int src_w, int src_h, float dst_x, float dst_y, float dst_w, float dst_h);
 
 // Texture getters (Cached internally)
@@ -159,6 +181,10 @@ VOID_API bool void_texture_draw_ex(const VoidWindow *window, const VoidTexture *
                                    int src_x, int src_y, int src_w, int src_h,
                                    float dst_x, float dst_y, float dst_w, float dst_h,
                                    double angle, const VoidPoint *center, VoidFlipMode flip);
+
+VOID_API VoidTexture *void_texture_load_from_memory(const VoidWindow *window, const void *data, uint64 size);
+VOID_API void         void_texture_update_rect(const VoidTexture *texture, int x, int y, int w, int h, const void *pixels);
+VOID_API void         void_texture_set_filter(const VoidTexture *texture, VoidFilterMode mode);
 
 // ============================================================================
 // ADVANCED GEOMETRY (gfx.c) - Zero Allocation
@@ -210,6 +236,9 @@ VOID_API bool  void_input_is_gamepad_just_released(int gamepad_index, VoidGamepa
 VOID_API void  void_input_set_gamepad_deadzone(float deadzone);
 VOID_API bool  void_input_rumble_gamepad(int gamepad_index, float low_freq, float high_freq, uint32 duration_ms);
 
+VOID_API void  void_input_begin_frame(void);
+VOID_API void  void_input_on_mouse_wheel(float x, float y);
+
 // ============================================================================
 // LOW-LEVEL THREADING (thread.c)
 // ============================================================================
@@ -219,6 +248,8 @@ VOID_API void   void_thread_sleep(uint32 ms);
 VOID_API uint32 void_thread_get_id(void);
 VOID_API void   void_processor_pause(void);
 
+VOID_API uint32 void_atomic_load(const volatile uint32 *value);
+VOID_API void   void_atomic_store(volatile uint32 *value, uint32 desired);
 VOID_API uint32 void_atomic_increment(volatile uint32 *value);
 VOID_API uint32 void_atomic_decrement(volatile uint32 *value);
 VOID_API bool   void_atomic_compare(volatile uint32 *value, uint32 expected, uint32 desired);
@@ -228,9 +259,17 @@ VOID_API bool   void_atomic_compare(volatile uint32 *value, uint32 expected, uin
 // ============================================================================
 
 VOID_API void void_log_init(void);
+VOID_API void void_log_exit(void);
 VOID_API void void_log_push(VoidLogLevel level, const char *file, int line, const char *fmt, ...);
 VOID_API void void_log_flush(void);
-VOID_API void void_log_exit(void);
+
+// --- Log Configuration Setters ---
+VOID_API void void_log_set_app_name(const char *app_name);
+VOID_API void void_log_set_min_level(VoidLogLevel min_level);
+VOID_API void void_log_set_targets(VoidLogTarget targets);
+VOID_API void void_log_set_dir_path(const char *dir_path);
+VOID_API void void_log_set_max_files(uint32 max_files);
+VOID_API void void_log_set_hidden(bool hidden);
 
 // ============================================================================
 // FILE I/O (file.c)
@@ -252,12 +291,12 @@ VOID_API void       void_audio_stop_channel(int32 channel);
 VOID_API void       void_audio_set_channel_volume(int32 channel, float volume);
 VOID_API void       void_audio_set_channel_position(int32 channel, int16 angle, uint8 distance);
 VOID_API bool       void_audio_is_channel_playing(int32 channel);
-VOID_API void       void_audio_destroy_sound(const VoidSound *sound);
+VOID_API void       void_audio_destroy_sound(VoidSound *sound);
 
 VOID_API VoidMusic* void_audio_load_music(const char *filepath);
 VOID_API void       void_audio_play_music(const VoidMusic *music, bool loop);
 VOID_API void       void_audio_stop_music(void);
-VOID_API void       void_audio_destroy_music(const VoidMusic *music);
+VOID_API void       void_audio_destroy_music(VoidMusic *music);
 
 VOID_API void       void_audio_set_master_volume(float volume);
 
@@ -276,6 +315,7 @@ VOID_API void       void_audio_set_master_volume(float volume);
         do { \
             if (!(condition)) { \
                 VOID_LOG_FATAL("Assertion failed: %s", #condition); \
+                void_log_flush(); \
                 abort(); \
             } \
         } while(0)

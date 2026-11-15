@@ -3,20 +3,31 @@
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_mixer.h>
-#include "types.h"
+#include "voiddef.h"
 
-// ============================================================================
-// INTERNAL OPAQUE STRUCTURES (Shared between VOID source files)
-// ============================================================================
+typedef enum {
+    VOID_INIT_SDL = 1 << 0,
+    VOID_INIT_IMG = 1 << 1,
+    VOID_INIT_MIX = 1 << 2,
+} VoidInitFlag;
+
+typedef struct VoidThread {
+    VoidThreadFunc func;
+    void *data;
+} VoidThread;
+
+typedef struct VoidLogEntry {
+    VoidLogLevel level;
+    uint64_t timestamp;
+    uint32_t thread_id;
+    char text[256];
+    volatile uint32_t is_ready;
+} VoidLogEntry;
 
 struct VoidWindow {
     SDL_Window* handle;
     SDL_Renderer* render;
-    bool is_running, should_close;
-};
-
-struct VoidRender {
-    SDL_Renderer* handle;
+    bool is_running, should_close, was_resized;
 };
 
 struct VoidTexture {
@@ -32,9 +43,5 @@ struct VoidSound {
 struct VoidMusic {
     Mix_Music *handle;
 };
-
-// Internal input hooks called by void_window_poll_events (window.c)
-void void_input_begin_frame(void);
-void void_input_on_mouse_wheel(float x, float y);
 
 #endif //VOID_INTERNAL_H

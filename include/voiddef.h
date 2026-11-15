@@ -1,5 +1,5 @@
-#ifndef VOID_TYPES_H
-#define VOID_TYPES_H
+#ifndef VOID_DEF_H
+#define VOID_DEF_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -25,12 +25,6 @@
 
 #define VOID_WINDOWPOS_UNDEFINED 0x1FFF0000
 #define VOID_WINDOWPOS_CENTERED  0x2FFF0000
-
-typedef enum {
-    VOID_INIT_SDL = 1 << 0,
-    VOID_INIT_IMG = 1 << 1,
-    VOID_INIT_MIX = 1 << 2,
-} VoidInitFlag;
 
 typedef enum {
     VOID_WINDOW_DEFAULT     = 0,
@@ -84,6 +78,13 @@ typedef enum {
     VOID_LOG_ERROR,
     VOID_LOG_FATAL
 } VoidLogLevel;
+
+typedef enum VoidLogTarget {
+    VOID_LOG_TARGET_NONE    = 0,
+    VOID_LOG_TARGET_CONSOLE = 1 << 0,
+    VOID_LOG_TARGET_FILE    = 1 << 1,
+    VOID_LOG_TARGET_ALL     = (1 << 0) | (1 << 1)
+} VoidLogTarget;
 
 typedef enum {
     // --- ALPHABET ---
@@ -153,19 +154,6 @@ typedef struct VoidScope {
 
 typedef void (*VoidThreadFunc)(void *data);
 
-typedef struct VoidThread {
-    VoidThreadFunc func;
-    void *data;
-} VoidThread;
-
-typedef struct VoidLogEntry {
-    VoidLogLevel level;
-    uint64_t timestamp;
-    uint32_t thread_id;
-    char text[256];
-    volatile uint32_t is_ready;
-} VoidLogEntry;
-
 typedef struct VoidWindow  VoidWindow;
 typedef struct VoidRender  VoidRender;
 typedef struct VoidTexture VoidTexture;
@@ -191,4 +179,4 @@ typedef uint16_t uint16;
 typedef uint32_t uint32;
 typedef uint64_t uint64;
 
-#endif //VOID_TYPES_H
+#endif //VOID_DEF_H

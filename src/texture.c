@@ -24,7 +24,7 @@ static bool void_texture_query(VoidTexture *texture) {
 }
 
 VoidTexture *void_texture_load(const VoidWindow *window, const char *filename) {
-    if (!window || !window->render) return NULL;
+    if (!window || !window->render || !filename) return NULL;
     const VoidScope scope = void_arena_push(NULL);
     VoidTexture *texture = void_texture_alloc();
     if (!texture) return NULL;
@@ -71,7 +71,7 @@ VoidTexture* void_texture_create_target(const VoidWindow *window, const int w, c
     const VoidScope scope = void_arena_push(NULL);
     VoidTexture *texture = void_texture_alloc();
     if (!texture) return NULL;
-    texture->handle = SDL_CreateTexture(window->render, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, w, h);
+    texture->handle = SDL_CreateTexture(window->render, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, w, h);
     if (!texture->handle) {
         void_arena_pop(NULL, scope);
         VOID_LOG_ERROR("SDL_CreateTexture (Target) failed: %s", SDL_GetError());
@@ -91,9 +91,10 @@ bool void_window_set_render_target(VoidWindow *window, VoidTexture *target) {
     return true;
 }
 
-void void_texture_destroy(const VoidTexture *texture) {
+void void_texture_destroy(VoidTexture *texture) {
     if (texture && texture->handle) {
         SDL_DestroyTexture(texture->handle);
+        texture->handle = NULL;
     }
 }
 
@@ -110,14 +111,29 @@ void void_texture_set_alpha(const VoidTexture *texture, const uint8 a) {
 }
 
 void void_texture_set_blend_mode(const VoidTexture *texture, const VoidBlendMode mode) {
-    if (texture && texture->handle) {
-        SDL_SetTextureBlendMode(texture->handle, (SDL_BlendMode)mode);
+    if (!texture || !texture->handle) return;
+    SDL_BlendMode sdl_mode = SDL_BLENDMODE_NONE;
+    switch (mode) {
+        case VOID_BLEND_NONE:  sdl_mode = SDL_BLENDMODE_NONE;  break;
+        case VOID_BLEND_BLEND: sdl_mode = SDL_BLENDMODE_BLEND; break;
+        case VOID_BLEND_ADD:   sdl_mode = SDL_BLENDMODE_ADD;   break;
+        case VOID_BLEND_MOD:   sdl_mode = SDL_BLENDMODE_MOD;   break;
+        case VOID_BLEND_MUL:   sdl_mode = SDL_BLENDMODE_MUL;   break;
+        case VOID_BLEND_PREMULTIPLIED:
+            sdl_mode = SDL_ComposeCustomBlendMode(
+                SDL_BLENDFACTOR_ONE, SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA, SDL_BLENDOPERATION_ADD,
+                SDL_BLENDFACTOR_ONE, SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA, SDL_BLENDOPERATION_ADD);
+            break;
+        case VOID_BLEND_ADD_PREMULTIPLIED:
+            sdl_mode = SDL_ComposeCustomBlendMode(
+                SDL_BLENDFACTOR_ONE, SDL_BLENDFACTOR_ONE, SDL_BLENDOPERATION_ADD,
+                SDL_BLENDFACTOR_ONE, SDL_BLENDFACTOR_ONE, SDL_BLENDOPERATION_ADD);
+            break;
+        default:
+            break;
     }
+    SDL_SetTextureBlendMode(texture->handle, sdl_mode);
 }
-
-// ============================================================================
-// DESSIN & TRANSFORMATIONS SPATIALES
-// ============================================================================
 
 int void_texture_get_width(const VoidTexture *texture) { return texture ? texture->width : 0; }
 int void_texture_get_height(const VoidTexture *texture) { return texture ? texture->height : 0; }
@@ -154,4 +170,48 @@ bool void_texture_draw_ex(const VoidWindow *window, const VoidTexture *texture,
         return false;
     }
     return true;
+}
+
+VoidTexture *void_texture_load_from_memory(const VoidWindow *window, const void *data, const uint64 size) {
+    if (!window || !window->render || !data || size == 0) return NULL;
+    SDL_RWops *rw = SDL_RWFromConstMem(data, (int)size);
+    if (!rw) {
+        VOID_LOG_ERROR("SDL_RWFromConstMem failed: %s", SDL_GetError());
+        return NULL;
+    }
+    const VoidScope scope = void_arena_push(NULL);
+    VoidTexture *texture = void_texture_alloc();
+    if (!texture) {
+        SDL_RWclose(rw);
+        return NULL;
+    }
+    texture->handle = IMG_LoadTexture_RW(window->render, rw, 1); // 1 = ferme rw automatiquement
+    if (!texture->handle) {
+        void_arena_pop(NULL, scope);
+        VOID_LOG_ERROR("IMG_LoadTexture_RW failed: %s", IMG_GetError());
+        return NULL;
+    }
+    if (!void_texture_query(texture)) {
+        SDL_DestroyTexture(texture->handle);
+        void_arena_pop(NULL, scope);
+        return NULL;
+    }
+    return texture;
+}
+
+void void_texture_update_rect(const VoidTexture *texture, const int x, const int y, const int w, const int h, const void *pixels) {
+    if (!texture || !texture->handle || !pixels || w <= 0 || h <= 0) return;
+    const SDL_Rect rect = {.x = x, .y = y, .w = w, .h = h};
+    SDL_UpdateTexture(texture->handle, &rect, pixels, w * 4);
+}
+
+void void_texture_set_filter(const VoidTexture *texture, const VoidFilterMode mode) {
+    if (!texture || !texture->handle) return;
+    SDL_ScaleMode sdl_mode = SDL_ScaleModeNearest;
+    switch (mode) {
+        case VOID_FILTER_NEAREST: sdl_mode = SDL_ScaleModeNearest; break;
+        case VOID_FILTER_LINEAR:  sdl_mode = SDL_ScaleModeLinear;  break;
+        case VOID_FILTER_BEST:    sdl_mode = SDL_ScaleModeBest;    break;
+    }
+    SDL_SetTextureScaleMode(texture->handle, sdl_mode);
 }

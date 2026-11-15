@@ -156,6 +156,7 @@ static void test_threading(void) {
 // ============================================================================
 // TEST 5: INTERACTIVE SANDBOX (RENDER, GFX, INPUT, FBO & SPATIAL AUDIO)
 // ============================================================================
+/*
 static void play_spatialized_sfx(const VoidSound *sfx, const float src_x, const float src_y, const float listener_x, const float listener_y, const float max_dist) {
     if (!sfx) return;
     const float dx = src_x - listener_x;
@@ -192,12 +193,12 @@ static void test_interactive_sandbox(void) {
     }
     void_render_set_logical_size(window, WINDOW_WIDTH, WINDOW_HEIGHT);
     // Load persistent VRAM & Audio assets in ROOT_MASTER before switching to FRAME arena
-    const VoidTexture *sparkle = void_texture_load(window, "assets/gemini_sparkle.png");
+    VoidTexture *sparkle = void_texture_load(window, "assets/gemini_sparkle.png");
     VoidTexture *fbo = void_texture_create_target(window, 320, 320);
     if (sparkle) {
         void_texture_set_blend_mode(sparkle, VOID_BLEND_ADD);
     }
-    const VoidSound *bounce_sfx = void_audio_load_sound("assets/bounce.wav");
+    VoidSound *bounce_sfx = void_audio_load_sound("assets/bounce.mp3");
     // Switch default arena to FRAME for the real-time loop
     void_memory_set_default_arena(s_frame_arena);
     void_input_set_gamepad_deadzone(0.15f);
@@ -360,6 +361,186 @@ static void test_interactive_sandbox(void) {
     void_texture_destroy(fbo);
     void_window_destroy(window);
 }
+*/
+
+#define SPARKLE_COLS 6
+#define SPARKLE_ROWS 4
+#define SPARKLE_COUNT (SPARKLE_COLS * SPARKLE_ROWS)
+
+typedef struct {
+    float x, y;
+    float size;
+    double phase;
+    double speed;
+} Sparkle;
+
+static VoidTexture *create_sparkle_spritesheet(const VoidWindow *window) {
+    static const char *frames[4][7] = {
+        {
+            ".......",
+            ".......",
+            ".......",
+            "...#...",
+            ".......",
+            ".......",
+            "......."
+        },
+        {
+            ".......",
+            ".......",
+            "...o...",
+            "..o#o..",
+            "...o...",
+            ".......",
+            "......."
+        },
+        {
+            "...o...",
+            "...o...",
+            "...#...",
+            "oo###oo",
+            "...#...",
+            "...o...",
+            "...o..."
+        },
+        {
+            ".......",
+            "...o...",
+            "..o.o..",
+            ".o...o.",
+            "..o.o..",
+            "...o...",
+            "......."
+        }
+    };
+    const int fw = 7, fh = 7, num_frames = 4;
+    const int sheet_w = fw * num_frames;
+    uint8_t pixels[28 * 7 * 4] = {0};
+    for (int f = 0; f < num_frames; f++) {
+        for (int y = 0; y < fh; y++) {
+            for (int x = 0; x < fw; x++) {
+                const char c = frames[f][y][x];
+                const int idx = (y * sheet_w + (f * fw + x)) * 4;
+                if (c == '#') {
+                    pixels[idx + 0] = 255;
+                    pixels[idx + 1] = 255;
+                    pixels[idx + 2] = 255;
+                    pixels[idx + 3] = 255;
+                } else if (c == 'o') {
+                    pixels[idx + 0] = 255;
+                    pixels[idx + 1] = 220;
+                    pixels[idx + 2] = 100;
+                    pixels[idx + 3] = 180;
+                }
+            }
+        }
+    }
+    VoidTexture *tex = void_texture_create_from_pixels(window, sheet_w, fh, pixels);
+    if (tex) {
+        void_texture_set_filter(tex, VOID_FILTER_NEAREST);
+        void_texture_set_blend_mode(tex, VOID_BLEND_ADD);
+    }
+    return tex;
+}
+
+static void test_interactive_sandbox(void) {
+    Sparkle sparkles[SPARKLE_COUNT];
+    const float cell_w = (float)WINDOW_WIDTH / SPARKLE_COLS;
+    const float cell_h = 622.0f / SPARKLE_ROWS;
+    for (int r = 0; r < SPARKLE_ROWS; r++) {
+        for (int c = 0; c < SPARKLE_COLS; c++) {
+            const int i = r * SPARKLE_COLS + c;
+            const float size = 21.0f + (float)(rand() % 3) * 14.0f;
+            const float margin = size;
+            sparkles[i].size = size;
+            sparkles[i].x = (float)c * cell_w + (float)(rand() % (int)(cell_w - margin));
+            sparkles[i].y = (float)r * cell_h + (float)(rand() % (int)(cell_h - margin));
+            sparkles[i].phase = (double)(rand() % 1000) / 100.0;
+            sparkles[i].speed = 8.0 + (double)(rand() % 5);
+        }
+    }
+    void_memory_print();
+    VoidWindow *window = void_window_create(
+        "VOID Framework (v0.1.0-beta)",
+        VOID_WINDOWPOS_CENTERED, VOID_WINDOWPOS_CENTERED,
+        WINDOW_WIDTH, WINDOW_HEIGHT,
+        VOID_WINDOW_SHOWN | VOID_WINDOW_RESIZABLE,
+        VOID_RENDER_ACCELERATED | VOID_RENDER_PRESENTVSYNC | VOID_RENDER_TARGETTEXTURE
+    );
+    float vel_y = 0.0f;
+    bool is_grounded = true;
+    float pos_x = 22.0f;
+    float pos_y = 400.0f;
+    bool flip_mode = false;
+    double elapsed_time = 0.0;
+    VoidTexture *sparkle = create_sparkle_spritesheet(window);
+    VoidTexture *dinosaur = void_texture_load(window, "assets/dinosaur.png");
+    VoidSound *bounce = void_audio_load_sound("assets/bounce.mp3");
+    void_render_set_logical_size(window, WINDOW_WIDTH, WINDOW_HEIGHT);
+    while (void_window_is_running(window)) {
+        const float gravity = 1800.0f;
+        const float ground = 400.0f;
+        const float speed = 400.0f;
+        const float dt = void_time_get_delta();
+        void_window_poll_events(window);
+        if (void_window_should_close(window) || void_input_is_key_just_pressed(VOID_KEY_ESCAPE)) {
+            void_window_close(window);
+        }
+        if (void_input_is_key_just_pressed(VOID_KEY_F11)) {
+            const bool is_fs = void_window_is_fullscreen(window);
+            void_window_set_fullscreen(window, !is_fs);
+            VOID_LOG_INFO("[WINDOW] Fullscreen toggled: %s", !is_fs ? "ON" : "OFF");
+        }
+        if (void_input_is_key_pressed(VOID_KEY_A)) {
+            pos_x -= speed * dt;
+            flip_mode = true;
+        }
+        if (void_input_is_key_pressed(VOID_KEY_D)) {
+            pos_x += speed * dt;
+            flip_mode = false;
+        }
+        if (void_input_is_key_just_pressed(VOID_KEY_W) && is_grounded) {
+            const float jump_force = -650.0f;
+            vel_y = jump_force;
+            is_grounded = false;
+            void_audio_play_sound(bounce);
+        }
+        if (!void_input_is_key_pressed(VOID_KEY_W) && vel_y < 0.0f) vel_y *= 0.5f;
+        vel_y += gravity * dt;
+        pos_y += vel_y * dt;
+        if (pos_y >= ground) {
+            pos_y = ground;
+            vel_y = 0.0f;
+            is_grounded = true;
+        }
+        void_render_clear(window, 0, 0, 0, 255);
+        void_render_rect(window, 0, 0, WINDOW_WIDTH, 622, 11, 11, 11, 255, true);
+        void_render_rect(window, 0, 622, WINDOW_WIDTH, 200, 22, 22, 22, 255, true);
+        elapsed_time += dt;
+        for (int i = 0; i < SPARKLE_COUNT; i++) {
+            const int frame = (int)((elapsed_time + sparkles[i].phase) * sparkles[i].speed) % 10;
+            if (frame < 4) {
+                void_texture_draw(
+                    window, sparkle,
+                    frame * 7, 0, 7, 7,
+                    sparkles[i].x, sparkles[i].y,
+                    sparkles[i].size, sparkles[i].size
+                );
+            }
+        }
+        void_texture_draw_ex(window, dinosaur, 0, 0, 0, 0, pos_x, pos_y, 204, 222,
+            0, 0, flip_mode * VOID_FLIP_HORIZONTAL);
+        void_render_present(window);
+        void_memory_set_default_arena(s_frame_arena);
+        void_log_flush();
+        void_arena_reset(s_frame_arena);
+    }
+    void_memory_set_default_arena(NULL);
+    void_audio_destroy_sound(bounce);
+    void_texture_destroy(dinosaur);
+    void_texture_destroy(sparkle);
+    void_window_destroy(window);
+}
 
 // ============================================================================
 // ENTRY POINT
@@ -376,12 +557,12 @@ int main(const int argc, char *argv[]) {
     }
     s_level_arena = void_arena_suballoc(root, "LEVEL", 16 * MiB);
     s_frame_arena = void_arena_suballoc(root, "FRAME", 1 * MiB);
-    bool run_all    = argc == 1;
+    bool run_all    = false;
     bool run_system = false;
     bool run_memory = false;
     bool run_file   = false;
     bool run_thread = false;
-    bool run_render = false;
+    bool run_render = argc == 1;
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "system") == 0)      run_system = true;
         else if (strcmp(argv[i], "memory") == 0) run_memory = true;

@@ -43,27 +43,49 @@ VoidWindow *void_window_create(const char *title, const int x, const int y, cons
     SDL_SetRenderDrawBlendMode(window->render, SDL_BLENDMODE_BLEND);
     window->is_running = true;
     window->should_close = false;
+    window->was_resized = false;
     VOID_LOG_OK("Window and Renderer created! (addr: %p)", window);
     return window;
 }
 
-void void_window_destroy(const VoidWindow *window) {
+void void_window_destroy(VoidWindow *window) {
     if (window == NULL) return;
-    if (window->render) SDL_DestroyRenderer(window->render);
-    if (window->handle) SDL_DestroyWindow(window->handle);
+    if (window->render) {
+        SDL_DestroyRenderer(window->render);
+        window->render = NULL;
+    }
+    if (window->handle) {
+        SDL_DestroyWindow(window->handle);
+        window->handle = NULL;
+    }
+    window->is_running = false;
     VOID_LOG_INFO("Window destroyed.");
 }
 
-void void_window_close(VoidWindow *window) { window->is_running = false; }
-bool void_window_is_running(const VoidWindow *window) { return window->is_running; }
-bool void_window_should_close(const VoidWindow *window) { return window->should_close; }
+void void_window_close(VoidWindow *window) {
+    if (window) window->is_running = false;
+}
+
+bool void_window_is_running(const VoidWindow *window) {
+    return window ? window->is_running : false;
+}
+
+bool void_window_should_close(const VoidWindow *window) {
+    return window ? window->should_close : true;
+}
 
 void void_window_poll_events(VoidWindow *window) {
     void_input_begin_frame();
+    if (window) window->was_resized = false;
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_QUIT) {
             if (window) window->should_close = true;
+        } else if (event.type == SDL_WINDOWEVENT && window && window->handle) {
+            if (event.window.windowID == SDL_GetWindowID(window->handle) &&
+                event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+                window->was_resized = true;
+                }
         } else if (event.type == SDL_MOUSEWHEEL) {
             void_input_on_mouse_wheel(event.wheel.preciseX, event.wheel.preciseY);
         }
@@ -156,9 +178,18 @@ bool void_window_is_grabbed(const VoidWindow *window) {
     return (SDL_GetWindowFlags(window->handle) & SDL_WINDOW_MOUSE_GRABBED) != 0;
 }
 
+bool void_window_is_focused(const VoidWindow *window) {
+    if (!window || !window->handle) return false;
+    return (SDL_GetWindowFlags(window->handle) & SDL_WINDOW_INPUT_FOCUS) != 0;
+}
+
+bool void_window_was_resized(const VoidWindow *window) {
+    return window ? window->was_resized : false;
+}
+
 // ============================================================================
 // 5. RENDER API
 // ============================================================================
 VoidRender *void_window_get_render(const VoidWindow *window) {
-    return (VoidRender*) window->render;
+    return window ? (VoidRender*)window->render : NULL;
 }

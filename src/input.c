@@ -176,14 +176,14 @@ bool void_input_is_key_just_pressed(const VoidKeyCode key) {
     const SDL_Scancode sc = key_to_scancode(key);
     if (sc == SDL_SCANCODE_UNKNOWN) return false;
     const uint8 *state = SDL_GetKeyboardState(NULL);
-    return (state[sc] != 0) && (s_prev_keys[sc] == 0);
+    return state[sc] != 0 && s_prev_keys[sc] == 0;
 }
 
 bool void_input_is_key_just_released(const VoidKeyCode key) {
     const SDL_Scancode sc = key_to_scancode(key);
     if (sc == SDL_SCANCODE_UNKNOWN) return false;
     const uint8 *state = SDL_GetKeyboardState(NULL);
-    return (state[sc] == 0) && (s_prev_keys[sc] != 0);
+    return state[sc] == 0 && s_prev_keys[sc] != 0;
 }
 
 // ============================================================================
