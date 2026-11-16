@@ -168,6 +168,9 @@ BIN_NAME   := $(NAME)$(BIN_EXT)
 LIB_NAME   := lib$(NAME)$(LIB_EXT)
 BUILD_BIN  := $(BIN_DIR)/$(BIN_NAME)
 
+STUB_NAME  := $(NAME)_Launcher$(BIN_EXT)
+BUILD_STUB := $(BUILD_DIR)/$(STUB_NAME)
+
 ifeq ($(BUILD_OS),windows)
     BUILD_LIB   := $(BIN_DIR)/$(LIB_NAME)
     IMPLIB_FLAG := -Wl,--out-implib,$(LIB_DIR)/lib$(NAME).dll.a
@@ -214,18 +217,21 @@ CCFLAGS  := $(CFLAGS) -std=c17
 CXXFLAGS := $(CFLAGS) -std=c++20
 
 SRC_MAIN := $(wildcard $(SRC_DIR)/main.c) $(wildcard $(SRC_DIR)/main.cpp)
+SRC_STUB := $(wildcard $(SRC_DIR)/launcher.c)
 
 OBJ_MAIN := $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(filter %.c, $(SRC_MAIN))) \
             $(patsubst $(SRC_DIR)/%.cpp, $(OBJ_DIR)/%.o, $(filter %.cpp, $(SRC_MAIN)))
+OBJ_STUB := $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SRC_STUB))
 
-SRCS_C   := $(filter-out $(SRC_MAIN), $(shell find $(SRC_DIR) -type f -name "*.c"))
+SRCS_C   := $(filter-out $(SRC_MAIN) $(SRC_STUB), $(shell find $(SRC_DIR) -type f -name "*.c"))
 SRCS_CPP := $(filter-out $(SRC_MAIN), $(shell find $(SRC_DIR) -type f -name "*.cpp"))
 
 OBJS_CORE := $(SRCS_C:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o) \
              $(SRCS_CPP:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
 
-DEPS      := $(OBJS_CORE:$(OBJ_DIR)/%.o=$(DEP_DIR)/%.d) \
-             $(OBJ_MAIN:$(OBJ_DIR)/%.o=$(DEP_DIR)/%.d)
+DEPS     := $(OBJS_CORE:$(OBJ_DIR)/%.o=$(DEP_DIR)/%.d) \
+            $(OBJ_MAIN:$(OBJ_DIR)/%.o=$(DEP_DIR)/%.d) \
+            $(OBJ_STUB:$(OBJ_DIR)/%.o=$(DEP_DIR)/%.d)
 
 EXEC := $(BUILD_BIN)
 
@@ -245,13 +251,13 @@ define SYNC_VENDOR
     fi
 endef
 
-.PHONY: all lib run debug clean fclean distclean purge re release info
+.PHONY: all lib stub run debug clean fclean distclean purge re prerelease release info
 
-.DELETE_ON_ERROR:
-
-all: $(BUILD_BIN)
+all: $(BUILD_BIN) $(BUILD_STUB)
 
 lib: $(BUILD_LIB)
+
+stub: $(BUILD_STUB)
 
 $(BUILD_DIR) $(OBJ_DIR) $(DEP_DIR) $(BIN_DIR) $(LIB_DIR):
 	@mkdir -p $@
@@ -268,6 +274,10 @@ $(BUILD_LIB): $(OBJS_CORE) $(MODE_STAMP) | $(LIB_DIR) $(BIN_DIR)
 	@echo "$(BLUE)[SHARED] Building Dynamic Library: $@$(NC)"
 	@$(CXX) -shared $(OBJS_CORE) $(IMPLIB_FLAG) $(LDFLAGS) $(LDLIBS) -o $@
 	$(SYNC_VENDOR)
+
+$(BUILD_STUB): $(OBJ_STUB) $(MODE_STAMP) | $(BUILD_DIR)
+	@echo "$(BLUE)[LD] Linking Stub: $@$(NC)"
+	@$(CC) $(OBJ_STUB) $(OSFLAG) $(LDFLAGS) -o $@
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR) $(DEP_DIR)
 	@echo "$(YELLOW)[CC] $<$(NC)"
@@ -307,36 +317,47 @@ re:
 	@$(MAKE) --no-print-directory fclean
 	@$(MAKE) --no-print-directory all
 
-release:
-	@echo "$(YELLOW)[RELEASE] Starting universal release build ($(DIST_NAME))...$(NC)"
+prerelease:
+	@echo "$(YELLOW)[PRERELEASE] Building package ($(DIST_NAME))...$(NC)"
 	@$(MAKE) --no-print-directory all MODE=release
-	@echo "$(BLUE)[RELEASE] Creating directory structure...$(NC)"
+	@echo "$(BLUE)[PRERELEASE] Creating directory structure...$(NC)"
 	@rm -rf $(DIST_DIR)
 	@mkdir -p $(DIST_DIR)/bin $(DIST_DIR)/lib $(DIST_DIR)/$(INC_DIR)
-	@echo "$(BLUE)[RELEASE] Exporting public headers...$(NC)"
+	@echo "$(BLUE)[PRERELEASE] Exporting public headers...$(NC)"
 	@cp -r $(INC_DIR)/* $(DIST_DIR)/$(INC_DIR)/ 2>/dev/null || true
 ifeq ($(BUILD_OS),windows)
-	@echo "$(BLUE)[RELEASE] Exporting and stripping Windows binaries...$(NC)"
+	@echo "$(BLUE)[PRERELEASE] Exporting Windows binaries...$(NC)"
+	@cp -P $(BUILD_STUB) $(DIST_DIR)/ 2>/dev/null || true
 	@cp -P $(BUILD_BIN) $(DIST_DIR)/bin/ 2>/dev/null || true
 	@cp -P $(BIN_DIR)/*.dll $(DIST_DIR)/bin/ 2>/dev/null || true
 	@cp -P $(LIB_DIR)/lib$(NAME).dll.a $(DIST_DIR)/lib/ 2>/dev/null || true
-	@$(STRIP) $(DIST_DIR)/bin/*.exe $(DIST_DIR)/bin/*.dll 2>/dev/null || true
 else ifeq ($(BUILD_OS),linux)
-	@echo "$(BLUE)[RELEASE] Exporting and stripping Linux binaries...$(NC)"
+	@echo "$(BLUE)[PRERELEASE] Exporting Linux binaries...$(NC)"
+	@cp -P $(BUILD_STUB) $(DIST_DIR)/ 2>/dev/null || true
 	@cp -P $(BUILD_BIN) $(DIST_DIR)/bin/ 2>/dev/null || true
 	@cp -P $(LIB_DIR)/*.so* $(DIST_DIR)/lib/ 2>/dev/null || true
-	@$(STRIP) $(DIST_DIR)/bin/$(BIN_NAME) $(DIST_DIR)/lib/*.so* 2>/dev/null || true
 endif
-	@echo "$(BLUE)[RELEASE] Attaching assets and documentation...$(NC)"
+	@echo "$(BLUE)[PRERELEASE] Attaching assets and documentation...$(NC)"
 	@if [ -d "assets" ]; then cp -r assets $(DIST_DIR)/; fi
 	@cp *.md $(DIST_DIR)/ 2>/dev/null || true
+	@echo "$(GREEN)[SUCCESS] Prerelease ready in: $(DIST_DIR)$(NC)"
+
+release: prerelease
+	@echo "$(YELLOW)[RELEASE] Finalizing release ($(DIST_NAME))...$(NC)"
+ifeq ($(BUILD_OS),windows)
+	@echo "$(BLUE)[RELEASE] Stripping Windows binaries...$(NC)"
+	@$(STRIP) $(DIST_DIR)/$(STUB_NAME) $(DIST_DIR)/bin/*.exe $(DIST_DIR)/bin/*.dll 2>/dev/null || true
+else ifeq ($(BUILD_OS),linux)
+	@echo "$(BLUE)[RELEASE] Stripping Linux binaries...$(NC)"
+	@$(STRIP) $(DIST_DIR)/$(STUB_NAME) $(DIST_DIR)/bin/$(BIN_NAME) $(DIST_DIR)/lib/*.so* 2>/dev/null || true
+endif
 	@echo "$(BLUE)[RELEASE] Compressing archives...$(NC)"
 	@cd dist && zip -ryq $(DIST_NAME).zip $(DIST_NAME) 2>/dev/null || echo "$(YELLOW)[WARNING] 'zip' failed.$(NC)"
-	@cd dist && tar -cJf $(DIST_NAME).tar.xz $(DIST_NAME) 2>/dev/null || echo "$(YELLOW)[WARNING] 'tar' failed.$(NC)"
+	@cd dist && tar -czf $(DIST_NAME).tar.gz $(DIST_NAME) 2>/dev/null || echo "$(YELLOW)[WARNING] 'tar' failed.$(NC)"
 	@echo "$(GREEN)==================================================$(NC)"
 	@echo "$(GREEN)[SUCCESS] Release packaged in: $(DIST_DIR)$(NC)"
 	@echo "$(GREEN)[SUCCESS] Archives created:    dist/$(DIST_NAME).zip$(NC)"
-	@echo "$(GREEN)                               dist/$(DIST_NAME).tar.xz$(NC)"
+	@echo "$(GREEN)                               dist/$(DIST_NAME).tar.gz$(NC)"
 	@echo "$(GREEN)==================================================$(NC)"
 
 info:

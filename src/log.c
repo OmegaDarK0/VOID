@@ -18,23 +18,6 @@
     #define VOID_GETPID() ((uint32)getpid())
 #endif
 
-#ifndef NAME
-    #define NAME "VOID"
-#endif
-#ifndef VERSION
-    #define VERSION "0.1.0-beta"
-#endif
-#ifndef GIT_COMMIT
-    #define GIT_COMMIT "unknown"
-#endif
-#ifndef MODE
-    #ifdef NDEBUG
-        #define MODE "release"
-    #else
-        #define MODE "debug"
-    #endif
-#endif
-
 #if defined(_WIN32)
     #define VOID_PLATFORM_OS "Windows"
 #elif defined(__linux__)
@@ -63,26 +46,6 @@
     #define VOID_COMPILER_NAME "MSVC"
 #else
     #define VOID_COMPILER_NAME "Standard C Compiler"
-#endif
-
-#if defined(__STDC_VERSION__)
-    #if __STDC_VERSION__ >= 202311L
-        #define VOID_C_STD "C23"
-    #elif __STDC_VERSION__ >= 201710L
-        #define VOID_C_STD "C17"
-    #elif __STDC_VERSION__ >= 201112L
-        #define VOID_C_STD "C11"
-    #elif __STDC_VERSION__ >= 199901L
-        #define VOID_C_STD "C99"
-    #else
-        #define VOID_C_STD "C89"
-    #endif
-#else
-    #define VOID_C_STD "C89"
-#endif
-
-#ifndef BUILD_TAG
-    #define BUILD_TAG "default"
 #endif
 
 #define MAX_LOG_ENTRIES      1024
@@ -117,11 +80,43 @@ static bool s_use_win32_console_attr = false;
 #endif
 
 static char s_app_name[MAX_APP_NAME] = NAME;
+static bool s_app_name_custom = false;
 static char s_config_dir[MAX_LOG_PATH] = "logs";
 static uint32 s_max_files = 10;
 static bool s_hidden_dir = true;
 static VoidLogLevel  s_min_level = VOID_LOG_DEBUG;
 static VoidLogTarget s_targets = VOID_LOG_TARGET_ALL;
+
+static void detect_app_name(char *out_name, const size_t out_size) {
+    if (!out_name || out_size == 0) return;
+#ifdef _WIN32
+    char exe_path[MAX_PATH];
+    const DWORD len = GetModuleFileNameA(NULL, exe_path, MAX_PATH);
+    if (len == 0 || len >= MAX_PATH) {
+        snprintf(out_name, out_size, "%s", NAME);
+        return;
+    }
+#else
+    char exe_path[MAX_FULL_PATH];
+    const ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+    if (len <= 0) {
+        snprintf(out_name, out_size, "%s", NAME);
+        return;
+    }
+    exe_path[len] = '\0';
+#endif
+    const char *base = exe_path;
+    for (const char *p = exe_path; *p; ++p) {
+        if (*p == '/' || *p == '\\') base = p + 1;
+    }
+    size_t name_len = strlen(base);
+    if (name_len >= out_size) name_len = out_size - 1;
+    memcpy(out_name, base, name_len);
+    out_name[name_len] = '\0';
+    if (name_len > 4 && strcmp(out_name + name_len - 4, ".exe") == 0) {
+        out_name[name_len - 4] = '\0';
+    }
+}
 
 static void resolve_log_dir(const char *raw_dir, const bool hidden, char *out_dir, const size_t out_size) {
     const char *src = raw_dir && raw_dir[0] != '\0' ? raw_dir : "logs";
@@ -338,6 +333,9 @@ static void reset_file_state_if_needed(void) {
 }
 
 void void_log_init(void) {
+    if (!s_app_name_custom) {
+        detect_app_name(s_app_name, sizeof(s_app_name));
+    }
 #ifdef _WIN32
     s_color_enabled = false;
     s_use_win32_console_attr = false;
@@ -371,8 +369,10 @@ void void_log_init(void) {
 void void_log_set_app_name(const char *app_name) {
     if (app_name && app_name[0] != '\0') {
         snprintf(s_app_name, sizeof(s_app_name), "%s", app_name);
+        s_app_name_custom = true;
     } else {
-        snprintf(s_app_name, sizeof(s_app_name), "%s", NAME);
+        s_app_name_custom = false;
+        detect_app_name(s_app_name, sizeof(s_app_name));
     }
     reset_file_state_if_needed();
 }
