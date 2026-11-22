@@ -77,7 +77,6 @@ int main(void) {
         free(cmd_line);
         return 1;
     }
-
     WaitForSingleObject(pi.hProcess, INFINITE);
     DWORD exit_code = 0;
     GetExitCodeProcess(pi.hProcess, &exit_code);
