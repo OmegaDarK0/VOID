@@ -85,11 +85,22 @@ STRIP    := strip
 BIN_EXT  :=
 LIB_EXT  :=
 
+MODE       ?= debug
+GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+CLEAN_TAG  := $(strip $(TAG))
+TAG_SUFFIX := $(if $(CLEAN_TAG),-$(CLEAN_TAG),)
+
 ifeq ($(BUILD_OS),windows)
     BIN_EXT := .exe
     LIB_EXT := .dll
 
-    RUNTIME ?= msvcrt
+    ifeq ($(strip $(RUNTIME)),)
+        ifeq ($(CLEAN_TAG),enhanced)
+            RUNTIME := ucrt
+        else
+            RUNTIME := msvcrt
+        endif
+    endif
 
     ifneq ($(HOST_OS),windows)
         ifeq ($(BUILD_ARCH),x86_64)
@@ -122,26 +133,23 @@ else
     ARCH_FLAGS := -m64
 endif
 
-MODE       ?= debug
-GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
-CLEAN_TAG  := $(strip $(TAG))
-TAG_SUFFIX := $(if $(CLEAN_TAG),-$(CLEAN_TAG),)
-
 ifeq ($(BUILD_OS),linux)
     BASE_TRIPLET := $(if $(filter x86,$(BUILD_ARCH)),i686-linux-gnu,x86_64-linux-gnu)
     ifneq ($(strip $(GLIBC)),)
-        VENDOR_TRIPLET := $(BASE_TRIPLET).$(strip $(GLIBC))
+        BUILD_ABI := $(strip $(GLIBC))
     else ifeq ($(CLEAN_TAG),legacy)
-        VENDOR_TRIPLET := $(BASE_TRIPLET).2.17
+        BUILD_ABI := 2.17
     else ifeq ($(CLEAN_TAG),enhanced)
-        VENDOR_TRIPLET := $(BASE_TRIPLET).2.31
+        BUILD_ABI := 2.31
     else
-        VENDOR_TRIPLET := $(BASE_TRIPLET)
+        BUILD_ABI := default
     endif
+    VENDOR_TRIPLET := $(if $(filter default,$(BUILD_ABI)),$(BASE_TRIPLET),$(BASE_TRIPLET).$(BUILD_ABI))
 else ifeq ($(BUILD_OS),windows)
+    BUILD_ABI := $(if $(filter x86,$(BUILD_ARCH)),msvcrt,$(RUNTIME))
     ifeq ($(BUILD_ARCH),x86)
         VENDOR_TRIPLET := i686-w64-mingw32
-    else ifeq ($(RUNTIME),ucrt)
+    else ifeq ($(BUILD_ABI),ucrt)
         VENDOR_TRIPLET := x86_64-w64-mingw32ucrt
     else
         VENDOR_TRIPLET := x86_64-w64-mingw32
@@ -159,7 +167,7 @@ BIN_DIR    := $(BUILD_DIR)/bin
 LIB_DIR    := $(BUILD_DIR)/lib
 OBJ_DIR    := $(BUILD_DIR)/obj-$(MODE)
 DEP_DIR    := $(BUILD_DIR)/dep-$(MODE)
-MODE_STAMP := $(BUILD_DIR)/.mode-$(MODE)
+MODE_STAMP := $(BUILD_DIR)/.mode-$(MODE)-$(BUILD_ABI)
 
 DIST_NAME  := $(NAME)-$(VERSION)-$(BUILD_OS)-$(BUILD_ARCH)$(TAG_SUFFIX)
 DIST_DIR   := dist/$(DIST_NAME)
@@ -263,7 +271,7 @@ $(BUILD_DIR) $(OBJ_DIR) $(DEP_DIR) $(BIN_DIR) $(LIB_DIR):
 	@mkdir -p $@
 
 $(MODE_STAMP): | $(BUILD_DIR)
-	@rm -f $(BUILD_DIR)/.mode-*
+	@rm -f $(BUILD_DIR)/.mode-* $(LIB_DIR)/*.so* $(BIN_DIR)/*.dll
 	@touch $@
 
 $(BUILD_BIN): $(OBJ_MAIN) $(BUILD_LIB) $(MODE_STAMP) | $(BIN_DIR)
