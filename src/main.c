@@ -44,13 +44,13 @@ static void test_memory_arenas(void) {
     char *temp_msg = void_arena_sprintf(s_frame_arena, "Entity #%d: Boss_Dragon (HP: %d)", 42, 9999);
     VOID_LOG_DEBUG("[MEMORY] Formatted in FRAME: '%s'", temp_msg);
     // 2. In-place top-of-stack reallocation
-    const uint64 old_len = (uint64)strlen(temp_msg) + 1;
+    const uint64 old_len = strlen(temp_msg) + 1;
     temp_msg = void_arena_realloc(s_frame_arena, temp_msg, old_len, 128, 1);
     strcat(temp_msg, " [ENRAGED]");
     VOID_LOG_DEBUG("[MEMORY] Reallocated in-place in FRAME: '%s'", temp_msg);
     // 3. Cross-arena Cut & Paste promotion (FRAME -> LEVEL)
     char *promoted_msg = void_arena_memmove(s_level_arena, s_frame_arena, temp_msg, 128, 1);
-    char *tag_copy     = void_arena_strdup(s_level_arena, "BOSS_ACTIVE");
+    char *tag_copy = void_arena_strdup(s_level_arena, "BOSS_ACTIVE");
     VOID_LOG_OK("[MEMORY] Promoted to LEVEL: '%s' [Tag: %s] (FRAME offset reclaimed!)", promoted_msg, tag_copy);
     void_memory_print();
     // 4. Simulate 3 ECS frames with 10,000 allocations each
@@ -78,7 +78,7 @@ static void test_file_and_library(void) {
     const char *src_file = "void_test_artifact.tmp";
     const char *dst_file = "void_test_artifact_copy.tmp";
     const char *payload  = "VOID_PAL_HOT_RELOAD_VALIDATION_PAYLOAD_v0.1.0-beta";
-    const uint64 payload_len = (uint64)strlen(payload);
+    const uint64 payload_len = strlen(payload);
     // 1. Write & Existence check
     if (void_file_write(src_file, payload, payload_len) && void_file_exists(src_file)) {
         const uint64 mtime = void_file_get_mtime(src_file);

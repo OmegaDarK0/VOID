@@ -82,10 +82,13 @@ void void_window_poll_events(VoidWindow *window) {
         if (event.type == SDL_QUIT) {
             if (window) window->should_close = true;
         } else if (event.type == SDL_WINDOWEVENT && window && window->handle) {
-            if (event.window.windowID == SDL_GetWindowID(window->handle) &&
-                event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-                window->was_resized = true;
+            if (event.window.windowID == SDL_GetWindowID(window->handle)) {
+                if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+                    window->was_resized = true;
+                } else if (event.window.event == SDL_WINDOWEVENT_CLOSE) {
+                    window->should_close = true;
                 }
+            }
         } else if (event.type == SDL_MOUSEWHEEL) {
             void_input_on_mouse_wheel(event.wheel.preciseX, event.wheel.preciseY);
         }

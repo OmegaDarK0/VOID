@@ -197,7 +197,7 @@ DEPFLAGS = -MT $@ -MMD -MP -MF $(DEP_DIR)/$*.d
 ifeq ($(BUILD_OS),windows)
     CFLAGS  += -D__USE_MINGW_ANSI_STDIO=1
     LDFLAGS += -Wl,--dynamicbase -Wl,--nxcompat
-    LDLIBS  += -lbcrypt -Wl,-Bstatic -lwinpthread -Wl,-Bdynamic
+    LDLIBS  += -lbcrypt
 else ifeq ($(BUILD_OS),linux)
     CFLAGS  += -fvisibility=hidden -fPIC -D_GNU_SOURCE
     LDFLAGS += -Wl,--disable-new-dtags -Wl,-rpath='$$ORIGIN:$$ORIGIN/../lib'
@@ -206,6 +206,10 @@ else ifeq ($(BUILD_OS),linux)
 endif
 
 LDLIBS += -lSDL2 -lSDL2_image -lSDL2_mixer
+
+ifeq ($(BUILD_OS),windows)
+    LDLIBS += -Wl,-Bstatic -lstdc++ -lwinpthread -Wl,-Bdynamic
+endif
 
 ifeq ($(MODE),debug)
     CFLAGS  += -Og -g
