@@ -10,10 +10,18 @@ uint64 void_time_get_ticks(void) {
     return SDL_GetTicks64();
 }
 
+uint64 void_time_get_counter(void) {
+    return SDL_GetPerformanceCounter();
+}
+
+uint64 void_time_get_frequency(void) {
+    return SDL_GetPerformanceFrequency();
+}
+
 float void_time_get_delta(void) {
-    const uint64 current_time = SDL_GetPerformanceCounter();
+    const uint64 current_time = void_time_get_counter();
     if (s_perf_freq == 0.0) {
-        s_perf_freq = (double)SDL_GetPerformanceFrequency();
+        s_perf_freq = (double)void_time_get_frequency();
     }
     if (s_last_time == 0) {
         s_last_time = current_time;

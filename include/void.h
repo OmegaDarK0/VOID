@@ -33,11 +33,13 @@ extern "C" {
 VOID_API bool   void_init(void);
 VOID_API void   void_exit(void);
 
-VOID_API uint32 void_get_core_count(void);  // Useful for initializing workers (job.cpp)
-VOID_API uint64 void_get_random_seed(void); // OS-level hardware/kernel 64-bit entropy seed
+VOID_API uint32 void_get_core_count(void);     // Useful for initializing workers (job.cpp)
+VOID_API uint64 void_get_random_seed(void);    // OS-level hardware/kernel 64-bit entropy seed
 
-VOID_API uint64 void_time_get_ticks(void);  // High-resolution time in milliseconds
-VOID_API float  void_time_get_delta(void);  // Delta time calculated by the Back-end
+VOID_API uint64 void_time_get_ticks(void);     // High-resolution time in milliseconds
+VOID_API uint64 void_time_get_counter(void);
+VOID_API uint64 void_time_get_frequency(void);
+VOID_API float  void_time_get_delta(void);     // Delta time calculated by the Back-end
 
 // ============================================================================
 // DYNAMIC LIBRARY LOADING (library.c)
@@ -86,6 +88,8 @@ VOID_API void       void_arena_pop(VoidArena *arena, VoidScope scope);
 VOID_API void       void_arena_print(const VoidArena *arena);
 VOID_API void       void_memory_print(void);
 VOID_API void       void_memory_monitor(uint32 interval_ms);
+
+VOID_API VoidArenaStats void_arena_get_stats(const VoidArena *arena);
 
 // ============================================================================
 // WINDOW (window.c)

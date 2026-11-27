@@ -171,7 +171,7 @@ void *void_arena_realloc(VoidArena *arena, void *ptr, const uint64 old_size, con
     const uintptr_t base = (uintptr_t)target->base;
     const uintptr_t top  = base + target->offset;
     if (addr >= base && addr + old_size == top) {
-        const uint64 base_offset = (uint64)(addr - base);
+        const uint64 base_offset = addr - base;
         if (base_offset + new_size <= target->capacity) {
             target->offset = base_offset + new_size;
             arena_unlock(target);
@@ -335,4 +335,17 @@ void void_memory_monitor(const uint32 interval_ms) {
         s_last_monitor_tick = now;
         void_memory_print();
     }
+}
+
+VoidArenaStats void_arena_get_stats(const VoidArena *arena) {
+    VoidArena *target = (VoidArena*)(arena ? arena : s_default_arena);
+    if (!target) return (VoidArenaStats){ .name = NULL, .used = 0, .capacity = 0 };
+    arena_lock(target);
+    const VoidArenaStats stats = {
+        .name = target->name,
+        .used = target->offset,
+        .capacity = target->capacity
+    };
+    arena_unlock(target);
+    return stats;
 }

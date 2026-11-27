@@ -26,6 +26,16 @@
 #define VOID_WINDOWPOS_UNDEFINED 0x1FFF0000
 #define VOID_WINDOWPOS_CENTERED  0x2FFF0000
 
+typedef int8_t   int8;
+typedef int16_t  int16;
+typedef int32_t  int32;
+typedef int64_t  int64;
+
+typedef uint8_t  uint8;
+typedef uint16_t uint16;
+typedef uint32_t uint32;
+typedef uint64_t uint64;
+
 typedef enum {
     VOID_WINDOW_DEFAULT     = 0,
     VOID_WINDOW_FULLSCREEN  = 1 << 0,
@@ -143,13 +153,19 @@ typedef enum {
 
 typedef struct VoidArena {
     const char *name;   // ENGINE, SESSION, LEVEL, FRAME, SCRATCH
-    uint8_t *base;
-    uint64_t capacity, offset;
-    volatile uint32_t lock;
+    uint8 *base;
+    uint64 capacity, offset;
+    volatile uint32 lock;
 } VoidArena;
 
+typedef struct VoidArenaStats {
+    const char *name;
+    uint64 used;
+    uint64 capacity;
+} VoidArenaStats;
+
 typedef struct VoidScope {
-    uint64_t offset_backup;
+    uint64 offset_backup;
 } VoidScope;
 
 typedef void (*VoidThreadFunc)(void *data);
@@ -168,15 +184,5 @@ typedef struct VoidRect {
 
 typedef struct VoidSound VoidSound;
 typedef struct VoidMusic VoidMusic;
-
-typedef int8_t   int8;
-typedef int16_t  int16;
-typedef int32_t  int32;
-typedef int64_t  int64;
-
-typedef uint8_t  uint8;
-typedef uint16_t uint16;
-typedef uint32_t uint32;
-typedef uint64_t uint64;
 
 #endif //VOID_DEF_H
