@@ -115,6 +115,8 @@ VOID_API void void_window_show(const VoidWindow *window);
 VOID_API void void_window_hide(const VoidWindow *window);
 VOID_API void void_window_maximize(const VoidWindow *window);
 VOID_API void void_window_minimize(const VoidWindow *window);
+VOID_API void void_window_set_cursor_visible(bool visible);
+VOID_API bool void_window_is_cursor_visible(void);
 
 // --- 3. Window Getters ---
 VOID_API void void_window_get_position(const VoidWindow *window, int *x, int *y);
@@ -219,6 +221,8 @@ VOID_API bool void_gfx_draw_textured_quad(const VoidWindow *window, const VoidTe
 // HUMAN INTERFACE DEVICES / INPUT (input.c)
 // ============================================================================
 
+VOID_API void  void_input_begin_frame(void);
+
 // --- Keyboard ---
 VOID_API bool  void_input_is_key_pressed(VoidKeyCode key);
 VOID_API bool  void_input_is_key_just_pressed(VoidKeyCode key);
@@ -230,6 +234,7 @@ VOID_API void  void_input_get_mouse_wheel(float *x, float *y);
 VOID_API bool  void_input_is_mouse_pressed(VoidMouseButton button);
 VOID_API bool  void_input_is_mouse_just_pressed(VoidMouseButton button);
 VOID_API bool  void_input_is_mouse_just_released(VoidMouseButton button);
+VOID_API void  void_input_on_mouse_wheel(float x, float y);
 
 // --- Gamepads (Up to 4 controllers, hot-plugging, deadzone & rumble) ---
 VOID_API bool  void_input_is_gamepad_connected(int gamepad_index);
@@ -240,8 +245,12 @@ VOID_API bool  void_input_is_gamepad_just_released(int gamepad_index, VoidGamepa
 VOID_API void  void_input_set_gamepad_deadzone(float deadzone);
 VOID_API bool  void_input_rumble_gamepad(int gamepad_index, float low_freq, float high_freq, uint32 duration_ms);
 
-VOID_API void  void_input_begin_frame(void);
-VOID_API void  void_input_on_mouse_wheel(float x, float y);
+// --- Text Input (UTF-8 buffer cleared each frame) ---
+VOID_API void        void_input_start_text(void);
+VOID_API void        void_input_stop_text(void);
+VOID_API bool        void_input_is_text_active(void);
+VOID_API const char* void_input_get_text(void);
+VOID_API void        void_input_on_text_input(const char *text);
 
 // ============================================================================
 // LOW-LEVEL THREADING (thread.c)
@@ -300,9 +309,11 @@ VOID_API void       void_audio_destroy_sound(VoidSound *sound);
 VOID_API VoidMusic* void_audio_load_music(const char *filepath);
 VOID_API void       void_audio_play_music(const VoidMusic *music, bool loop);
 VOID_API void       void_audio_stop_music(void);
-VOID_API void       void_audio_destroy_music(VoidMusic *music);
-
+VOID_API void       void_audio_pause_music(void);
+VOID_API void       void_audio_resume_music(void);
+VOID_API void       void_audio_set_music_volume(float volume);
 VOID_API void       void_audio_set_master_volume(float volume);
+VOID_API void       void_audio_destroy_music(VoidMusic *music);
 
 // Helper macros to automatically inject file and line numbers
 #define VOID_LOG_DEBUG(...) void_log_push(VOID_LOG_DEBUG, __FILE__, __LINE__, __VA_ARGS__)

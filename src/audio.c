@@ -2,6 +2,15 @@
 #include "internal.h"
 #include "void.h"
 
+static float s_master_volume = 1.0f;
+static float s_music_volume  = 1.0f;
+
+static float clamp_volume(const float volume) {
+    if (volume < 0.0f) return 0.0f;
+    if (volume > 1.0f) return 1.0f;
+    return volume;
+}
+
 VoidSound* void_audio_load_sound(const char *filepath) {
     if (!filepath) return NULL;
     const VoidScope scope = void_arena_push(NULL);
@@ -74,6 +83,25 @@ void void_audio_stop_music(void) {
     Mix_HaltMusic();
 }
 
+void void_audio_pause_music(void) {
+    Mix_PauseMusic();
+}
+
+void void_audio_resume_music(void) {
+    Mix_ResumeMusic();
+}
+
+void void_audio_set_music_volume(const float volume) {
+    s_music_volume = clamp_volume(volume);
+    Mix_VolumeMusic((int)(s_master_volume * s_music_volume * MIX_MAX_VOLUME));
+}
+
+void void_audio_set_master_volume(const float volume) {
+    s_master_volume = clamp_volume(volume);
+    Mix_MasterVolume((int)(s_master_volume * MIX_MAX_VOLUME));
+    Mix_VolumeMusic((int)(s_master_volume * s_music_volume * MIX_MAX_VOLUME));
+}
+
 void void_audio_destroy_music(VoidMusic *music) {
     if (music && music->handle) {
         Mix_FreeMusic(music->handle);
@@ -81,17 +109,8 @@ void void_audio_destroy_music(VoidMusic *music) {
     }
 }
 
-void void_audio_set_master_volume(float volume) {
-    if (volume < 0.0f) volume = 0.0f;
-    if (volume > 1.0f) volume = 1.0f;
-    Mix_MasterVolume((int)(volume * MIX_MAX_VOLUME));
-    Mix_VolumeMusic((int)(volume * MIX_MAX_VOLUME));
-}
-
 void void_audio_set_channel_volume(const int32 channel, float volume) {
-    if (channel < 0) return;
-    if (volume < 0.0f) volume = 0.0f;
-    if (volume > 1.0f) volume = 1.0f;
+    volume = clamp_volume(volume);
     Mix_Volume(channel, (int)(volume * MIX_MAX_VOLUME));
 }
 

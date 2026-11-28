@@ -91,6 +91,8 @@ void void_window_poll_events(VoidWindow *window) {
             }
         } else if (event.type == SDL_MOUSEWHEEL) {
             void_input_on_mouse_wheel(event.wheel.preciseX, event.wheel.preciseY);
+        } else if (event.type == SDL_TEXTINPUT) {
+            void_input_on_text_input(event.text.text);
         }
     }
 }
@@ -142,6 +144,10 @@ void void_window_minimize(const VoidWindow *window) {
     if (window && window->handle) SDL_MinimizeWindow(window->handle);
 }
 
+void void_window_set_cursor_visible(const bool visible) {
+    SDL_ShowCursor(visible ? SDL_ENABLE : SDL_DISABLE);
+}
+
 // ============================================================================
 // 3. WINDOW GETTERS
 // ============================================================================
@@ -188,6 +194,10 @@ bool void_window_is_focused(const VoidWindow *window) {
 
 bool void_window_was_resized(const VoidWindow *window) {
     return window ? window->was_resized : false;
+}
+
+bool void_window_is_cursor_visible(void) {
+    return SDL_ShowCursor(SDL_QUERY) == SDL_ENABLE;
 }
 
 // ============================================================================

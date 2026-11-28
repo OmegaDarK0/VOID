@@ -6,6 +6,8 @@
 #define MAX_GAMEPADS 4
 #define NUM_GAMEPAD_BUTTONS 15
 
+#define TEXT_INPUT_BUFFER_SIZE 64
+
 static SDL_GameController *s_controllers[MAX_GAMEPADS] = {NULL, NULL, NULL, NULL};
 static float  s_gamepad_deadzone = 0.15f;
 
@@ -14,6 +16,9 @@ static uint32 s_prev_mouse_mask = 0;
 static uint16 s_prev_pad_buttons[MAX_GAMEPADS] = {0};
 static float  s_mouse_wheel_x = 0.0f;
 static float  s_mouse_wheel_y = 0.0f;
+
+static char   s_text_input[TEXT_INPUT_BUFFER_SIZE] = {0};
+static size_t s_text_input_len = 0;
 
 // ============================================================================
 // INTERNAL MAPPING HELPERS
@@ -154,11 +159,25 @@ void void_input_begin_frame(void) {
     }
     s_mouse_wheel_x = 0.0f;
     s_mouse_wheel_y = 0.0f;
+    s_text_input[0] = '\0';
+    s_text_input_len = 0;
 }
 
 void void_input_on_mouse_wheel(const float x, const float y) {
     s_mouse_wheel_x += x;
     s_mouse_wheel_y += y;
+}
+
+void void_input_on_text_input(const char *text) {
+    if (!text) return;
+    const size_t len = strlen(text);
+    const size_t avail = TEXT_INPUT_BUFFER_SIZE - 1 - s_text_input_len;
+    const size_t copy_len = len < avail ? len : avail;
+    if (copy_len > 0) {
+        memcpy(s_text_input + s_text_input_len, text, copy_len);
+        s_text_input_len += copy_len;
+        s_text_input[s_text_input_len] = '\0';
+    }
 }
 
 // ============================================================================
@@ -254,11 +273,11 @@ float void_input_get_gamepad_axis(const int gamepad_index, const VoidGamepadAxis
         default: return 0.0f;
     }
     const int16 raw = SDL_GameControllerGetAxis(pad, sdl_axis);
-    const float norm = (raw < 0) ? ((float)raw / 32768.0f) : ((float)raw / 32767.0f);
+    const float norm = raw < 0 ? (float)raw / 32768.0f : (float)raw / 32767.0f;
     if (fabsf(norm) < s_gamepad_deadzone) {
         return 0.0f;
     }
-    const float sign = (norm < 0.0f) ? -1.0f : 1.0f;
+    const float sign = norm < 0.0f ? -1.0f : 1.0f;
     return sign * ((fabsf(norm) - s_gamepad_deadzone) / (1.0f - s_gamepad_deadzone));
 }
 
@@ -287,11 +306,31 @@ bool void_input_is_gamepad_just_released(const int gamepad_index, const VoidGame
 bool void_input_rumble_gamepad(const int gamepad_index, float low_freq, float high_freq, const uint32 duration_ms) {
     SDL_GameController *pad = get_or_open_controller(gamepad_index);
     if (!pad) return false;
-    if (low_freq < 0.0f)  low_freq = 0.0f;
-    if (low_freq > 1.0f)  low_freq = 1.0f;
+    if (low_freq < 0.0f) low_freq = 0.0f;
+    if (low_freq > 1.0f) low_freq = 1.0f;
     if (high_freq < 0.0f) high_freq = 0.0f;
     if (high_freq > 1.0f) high_freq = 1.0f;
-    const uint16 low_val  = (uint16)(low_freq * 65535.0f);
+    const uint16 low_val = (uint16)(low_freq * 65535.0f);
     const uint16 high_val = (uint16)(high_freq * 65535.0f);
     return SDL_GameControllerRumble(pad, low_val, high_val, duration_ms) == 0;
+}
+
+// ============================================================================
+// 4. TEXT INPUT
+// ============================================================================
+
+void void_input_start_text(void) {
+    SDL_StartTextInput();
+}
+
+void void_input_stop_text(void) {
+    SDL_StopTextInput();
+}
+
+bool void_input_is_text_active(void) {
+    return SDL_IsTextInputActive() == SDL_TRUE;
+}
+
+const char *void_input_get_text(void) {
+    return s_text_input;
 }
